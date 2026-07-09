@@ -89,8 +89,10 @@ export default function LoginPage() {
       if (action === "signin") {
         router.push(searchParams.get("redirect") ?? "/dashboard")
         router.refresh()
-      } else {
-        setMessage("Cek email kamu untuk konfirmasi pendaftaran! 📧")
+      } else if (action === "signup") {
+        setMessage(data.message ?? "Cek email kamu untuk konfirmasi pendaftaran! 📧")
+      } else if (action === "resend-confirmation") {
+        setMessage(data.message ?? "✅ Email konfirmasi sudah dikirim!")
       }
     } catch {
       setError("Gagal terhubung ke server. Cek koneksi internet.")
@@ -150,9 +152,42 @@ export default function LoginPage() {
                     />
                   </div>
                   {error && (
-                    <p className="text-sm text-destructive flex items-center gap-1" role="alert">
-                      <AlertCircle className="size-4" /> {error}
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-sm text-destructive flex items-center gap-1" role="alert">
+                        <AlertCircle className="size-4" /> {error}
+                      </p>
+                      {/* Tampilkan tombol kirim ulang jika error karena not confirmed */}
+                      {(error.includes("belum dikonfirmasi") || error.includes("SPAM")) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs gap-1"
+                          disabled={loading}
+                          onClick={async () => {
+                            const email = (document.getElementById("email-login") as HTMLInputElement)?.value
+                            if (!email) return
+                            setError("")
+                            setLoading(true)
+                            try {
+                              const res = await fetch("/api/auth", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "resend-confirmation", email }),
+                              })
+                              const data = await res.json()
+                              if (res.ok) setMessage(data.message)
+                              else setError(data.error)
+                            } catch {
+                              setError("Gagal kirim ulang. Coba lagi.")
+                            } finally { setLoading(false) }
+                          }}
+                        >
+                          <Mail className="size-3.5" />
+                          Kirim Ulang Email Konfirmasi
+                        </Button>
+                      )}
+                    </div>
                   )}
                   <Button type="submit" className="w-full gap-2" disabled={loading} aria-busy={loading}>
                     {loading ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}

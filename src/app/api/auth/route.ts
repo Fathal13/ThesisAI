@@ -120,7 +120,7 @@ export async function POST(request: Request) {
     const password = (body.password as string) ?? ""
 
     // --- Validate required fields ---
-    if (!action || !["signin", "signup", "signout"].includes(action)) {
+    if (!action || !["signin", "signup", "signout", "resend-confirmation"].includes(action)) {
       return NextResponse.json({ error: "Action tidak dikenal" }, { status: 400 })
     }
 
@@ -140,6 +140,45 @@ export async function POST(request: Request) {
       )
       await supabase.auth.signOut()
       return NextResponse.json({ success: true })
+    }
+
+    // --- Resend confirmation (only needs email) ---
+    if (action === "resend-confirmation") {
+      const normalizedEmail = email.toLowerCase()
+
+      const emailError = validateEmail(normalizedEmail)
+      if (emailError) {
+        auditLog(action, normalizedEmail, ip, "failure", emailError)
+        return NextResponse.json({ error: emailError }, { status: 400 })
+      }
+
+      const cookieStore = await cookies()
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            get(name: string) { return cookieStore.get(name)?.value },
+            set() {},
+            remove() {},
+          },
+        },
+      )
+
+      const { data, error } = await supabase.auth.resend({
+        type: "signup",
+        email: normalizedEmail,
+      })
+
+      if (error) {
+        auditLog(action, normalizedEmail, ip, "failure", error?.message ?? "unknown")
+        return NextResponse.json({ error: "Gagal mengirim ulang email. Coba lagi nanti." }, { status: 500 })
+      }
+
+      auditLog(action, normalizedEmail, ip, "success")
+      return NextResponse.json({
+        message: "✅ Email konfirmasi sudah dikirim ulang! Cek inbox dan folder SPAM.",
+      })
     }
 
     // --- Email & password validation ---
@@ -225,6 +264,13 @@ export async function POST(request: Request) {
 
       if (error) {
         auditLog("signin", normalizedEmail, ip, "failure", error.message)
+        // Cek apakah error karena email belum dikonfirmasi
+        if (error.message.includes("Email not confirmed") || error.message.includes("email not confirmed")) {
+          return NextResponse.json(
+            { error: "Email belum dikonfirmasi. Cek inbox (dan spam) untuk link konfirmasi, atau coba daftar ulang." },
+            { status: 401 },
+          )
+        }
         // Jangan bocorkan apakah email terdaftar atau tidak
         return NextResponse.json(
           { error: "Email atau password salah." },
@@ -259,7 +305,6 @@ export async function POST(request: Request) {
 
       if (error) {
         auditLog("signup", normalizedEmail, ip, "failure", error.message)
-        // Jangan bocorkan detail error ke user (misal: "user already exists")
         if (error.message.includes("already")) {
           return NextResponse.json(
             { error: "Email sudah terdaftar. Silakan login." },
@@ -270,9 +315,13 @@ export async function POST(request: Request) {
       }
 
       auditLog("signup", normalizedEmail, ip, "success")
+
+      // Catatan: di Supabase free tier, email konfirmasi sering telat/gagal
+      // Solusi: beri instruksi jelas
       return NextResponse.json({
         user: data.user,
-        message: "Cek email untuk konfirmasi pendaftaran. 📧",
+        message: "📧 Email konfirmasi sudah dikirim! Cek inbox dan folder SPAM. Kalau tidak ada dalam 5 menit, coba daftar ulang atau login — kadang email sudah terdaftar tanpa perlu konfirmasi.",
+        confirmationSent: true,
       })
     }
 
