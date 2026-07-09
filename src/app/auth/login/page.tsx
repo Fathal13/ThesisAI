@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { BookOpen, Loader2, Mail } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { BookOpen, Loader2, Mail, AlertCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,9 +11,39 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
+
+  // Client-side validation helpers
+  function validateEmail(email: string): string | null {
+    if (!email) return "Email wajib diisi."
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Format email tidak valid."
+    if (email.length > 254) return "Email terlalu panjang."
+    return null
+  }
+
+  function validatePassword(password: string, isSignup: boolean): string | null {
+    if (!password) return "Password wajib diisi."
+    if (isSignup) {
+      if (password.length < 8) return "Password minimal 8 karakter."
+      if (password.length > 128) return "Password terlalu panjang (max 128)."
+      if (!/[A-Z]/.test(password)) return "Password harus mengandung minimal 1 huruf besar."
+      if (!/[a-z]/.test(password)) return "Password harus mengandung minimal 1 huruf kecil."
+      if (!/[0-9]/.test(password)) return "Password harus mengandung minimal 1 angka."
+      if (!/[^A-Za-z0-9]/.test(password)) return "Password harus mengandung minimal 1 simbol."
+    }
+    return null
+  }
+
+  function validateName(name: string): string | null {
+    if (!name) return "Nama wajib diisi."
+    if (name.length < 2) return "Nama minimal 2 karakter."
+    if (name.length > 100) return "Nama terlalu panjang (max 100)."
+    if (/[<>{}$]/.test(name)) return "Nama mengandung karakter tidak valid."
+    return null
+  }
 
   async function handleAuth(e: React.FormEvent<HTMLFormElement>, action: "signin" | "signup") {
     e.preventDefault()
@@ -22,17 +52,30 @@ export default function LoginPage() {
     setMessage("")
 
     const form = new FormData(e.currentTarget)
-    const body: Record<string, string> = {
-      action,
-      email: form.get("email") as string,
-      password: form.get("password") as string,
+    const email = (form.get("email") as string)?.trim().toLowerCase() ?? ""
+    const password = form.get("password") as string
+    const nama = (form.get("nama") as string)?.trim() ?? ""
+
+    // Client-side validation
+    const emailError = validateEmail(email)
+    if (emailError) { setError(emailError); setLoading(false); return }
+
+    const passError = validatePassword(password, action === "signup")
+    if (passError) { setError(passError); setLoading(false); return }
+
+    if (action === "signup") {
+      const nameError = validateName(nama)
+      if (nameError) { setError(nameError); setLoading(false); return }
     }
-    if (action === "signup") body.nama = form.get("nama") as string
+
+    const body: Record<string, string> = { action, email, password }
+    if (action === "signup") body.nama = nama
 
     try {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(body),
       })
 
@@ -44,16 +87,15 @@ export default function LoginPage() {
       }
 
       if (action === "signin") {
-        router.push("/dashboard")
+        router.push(searchParams.get("redirect") ?? "/dashboard")
         router.refresh()
       } else {
         setMessage("Cek email kamu untuk konfirmasi pendaftaran! 📧")
-        setLoading(false) // keep loading false so form stays
       }
     } catch {
-      setError("Gagal terhubung ke server")
+      setError("Gagal terhubung ke server. Cek koneksi internet.")
     } finally {
-      if (action === "signin") setLoading(false)
+      setLoading(false)
     }
   }
 
@@ -85,14 +127,34 @@ export default function LoginPage() {
                 <form onSubmit={(e) => handleAuth(e, "signin")} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email-login">Email</Label>
-                    <Input id="email-login" name="email" type="email" placeholder="nama@email.com" required />
+                    <Input
+                      id="email-login"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="nama@email.com"
+                      required
+                      disabled={loading}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password-login">Password</Label>
-                    <Input id="password-login" name="password" type="password" placeholder="••••••••" required />
+                    <Input
+                      id="password-login"
+                      name="password"
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                      required
+                      disabled={loading}
+                    />
                   </div>
-                  {error && <p className="text-sm text-destructive">{error}</p>}
-                  <Button type="submit" className="w-full gap-2" disabled={loading}>
+                  {error && (
+                    <p className="text-sm text-destructive flex items-center gap-1" role="alert">
+                      <AlertCircle className="size-4" /> {error}
+                    </p>
+                  )}
+                  <Button type="submit" className="w-full gap-2" disabled={loading} aria-busy={loading}>
                     {loading ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
                     Masuk
                   </Button>
@@ -104,20 +166,55 @@ export default function LoginPage() {
                 <form onSubmit={(e) => handleAuth(e, "signup")} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="nama">Nama Lengkap</Label>
-                    <Input id="nama" name="nama" placeholder="Nama kamu" required />
+                    <Input
+                      id="nama"
+                      name="nama"
+                      autoComplete="name"
+                      placeholder="Nama kamu"
+                      required
+                      disabled={loading}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email-reg">Email</Label>
-                    <Input id="email-reg" name="email" type="email" placeholder="nama@email.com" required />
+                    <Input
+                      id="email-reg"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="nama@email.com"
+                      required
+                      disabled={loading}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password-reg">Password</Label>
-                    <Input id="password-reg" name="password" type="password" placeholder="Min. 8 karakter" required minLength={8} />
+                    <Input
+                      id="password-reg"
+                      name="password"
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="Min 8 char: Aa1!@#"
+                      required
+                      minLength={8}
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Minimal 8 karakter — harus ada huruf besar, kecil, angka & simbol
+                    </p>
                   </div>
-                  {error && <p className="text-sm text-destructive">{error}</p>}
-                  {message && <p className="text-sm text-emerald-600 font-medium">{message}</p>}
-                  <Button type="submit" className="w-full gap-2" disabled={loading}>
-                    {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+                  {error && (
+                    <p className="text-sm text-destructive flex items-center gap-1" role="alert">
+                      <AlertCircle className="size-4" /> {error}
+                    </p>
+                  )}
+                  {message && (
+                    <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                      <CheckCircle className="size-4" /> {message}
+                    </p>
+                  )}
+                  <Button type="submit" className="w-full gap-2" disabled={loading} aria-busy={loading}>
+                    {loading ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
                     {loading ? "Mendaftarkan..." : "Daftar Gratis"}
                   </Button>
                 </form>
@@ -126,7 +223,14 @@ export default function LoginPage() {
 
             <p className="text-xs text-center text-muted-foreground mt-6">
               Dengan mendaftar, kamu setuju dengan{" "}
-              <a href="#" className="underline">ketentuan layanan</a> kami.
+              <a href="/syarat-ketentuan" className="underline hover:text-primary" target="_blank" rel="noopener noreferrer">
+                syarat & ketentuan
+              </a>{" "}
+              dan{" "}
+              <a href="/kebijakan-privasi" className="underline hover:text-primary" target="_blank" rel="noopener noreferrer">
+                kebijakan privasi
+              </a>{" "}
+              kami.
             </p>
           </CardContent>
         </Card>

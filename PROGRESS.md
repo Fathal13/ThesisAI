@@ -297,7 +297,28 @@ TOTAL: ████████████████░░░░░░░░�
   - ✅ **Fallback chain verifikasi:** Gemini → NVIDIA → OpenRouter → Groq semua teruji
   - ✅ **TypeScript** — 0 errors
 - **Progress:** Tahap 1.3 — AI Layer (Gemini + Fallback) 100% ✅
-- **Total ~37%**
+- **Total ~38%**
+
+### 🗓️ Sesi 10 Juli 2026
+- **Cache Rangkuman AI (Tahap 3.2):**
+  - ✅ Tabel `summary_cache` di Supabase + RLS
+  - ✅ API `/api/literature/summarize` cek cache dulu sebelum panggil AI
+  - ✅ Frontend kirim `doi` & `articleUrl` sebagai cache key
+  - ✅ Upsert ke database saat rangkuman sukses
+- **Auto-Update Progress (Tahap 4.3):**
+  - ✅ API `/api/progress/recalculate` — hitung ulang `bab_selesai`
+  - ✅ Writing page panggil recalculate saat status berubah
+  - ✅ Juga dipanggil saat AI Review selesai
+- **Legal & Kepatuhan (Tahap 8.2):**
+  - ✅ Halaman `/kebijakan-privasi` — privacy policy lengkap
+  - ✅ Halaman `/syarat-ketentuan` — ToS + disclaimer integritas akademik
+  - ✅ Footer landing page: link Privasi + Syarat & Ketentuan
+  - ✅ Login page: link ke syarat & ketentuan + privacy policy
+  - ✅ Integritas akademik: disclaimer di ToS, contoh sidang untuk latihan saja
+  - ✅ Data retention: user bisa hapus akun kapan saja
+- **Keamanan Login** — rate limiting, CSRF, password validation, audit log ✅
+- **TypeScript: 0 errors** ✅
+- **Commit & push** ✅
 
 ---
 

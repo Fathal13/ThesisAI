@@ -169,3 +169,32 @@ CREATE POLICY "Users can manage own progress"
   ON public.progress
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+
+-- ============================================================
+-- 6. SUMMARY CACHE (untuk caching hasil rangkuman AI)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.summary_cache (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  article_identifier TEXT NOT NULL, -- DOI atau URL artikel
+  title TEXT NOT NULL,
+  rangkuman JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, article_identifier)
+);
+
+ALTER TABLE public.summary_cache ENABLE ROW LEVEL SECURITY;
+
+DROP TRIGGER IF EXISTS summary_cache_updated_at ON public.summary_cache;
+CREATE TRIGGER summary_cache_updated_at
+  BEFORE UPDATE ON public.summary_cache
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+
+-- Policy: user hanya bisa CRUD cache-nya sendiri
+DROP POLICY IF EXISTS "Users can manage own summary cache" ON public.summary_cache;
+CREATE POLICY "Users can manage own summary cache"
+  ON public.summary_cache
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);

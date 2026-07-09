@@ -163,6 +163,10 @@ export default function WritingPage() {
       // Update status ke "review"
       const { supabase } = await import("@/lib/supabase")
       await (supabase.from("bab") as any).update({ status: "review" }).eq("id", bab.id) // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      // Recalculate progress
+      try { await fetch("/api/progress/recalculate", { method: "POST" }) } catch { /* skip */ }
+
       fetchBab()
     } catch {
       setError("Gagal review tulisan. Coba lagi.")
@@ -174,6 +178,14 @@ export default function WritingPage() {
   async function updateStatus(id: string, status: Bab["status"]) {
     const { supabase } = await import("@/lib/supabase")
     await (supabase.from("bab") as any).update({ status }).eq("id", id) // eslint-disable-line @typescript-eslint/no-explicit-any
+
+    // Auto-update progress saat status berubah
+    try {
+      await fetch("/api/progress/recalculate", { method: "POST" })
+    } catch {
+      // Silently fail — progress tidak kritis
+    }
+
     fetchBab()
   }
 

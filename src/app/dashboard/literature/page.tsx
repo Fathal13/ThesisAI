@@ -84,6 +84,8 @@ export default function LiteraturePage() {
         body: JSON.stringify({
           title: item.title,
           abstract: item.abstract,
+          doi: item.doi,
+          articleUrl: item.url,
         }),
       })
 
@@ -297,7 +299,7 @@ export default function LiteraturePage() {
       {/* Footer note */}
       <div className="text-center pt-4">
         <p className="text-xs text-muted-foreground">
-          Sumber: CrossRef API (gratis) · AI: Google Gemini · Disclaimer: Rangkuman AI tidak 100% akurat, verifikasi dengan artikel asli.
+          Sumber: CrossRef API (gratis) · Rangkuman by AI · Tidak 100% akurat, verifikasi dengan artikel asli.
         </p>
       </div>
     </div>

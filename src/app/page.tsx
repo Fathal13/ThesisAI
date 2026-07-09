@@ -98,7 +98,7 @@ export default function Home() {
             </Link>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            ✨ Didukung Google Gemini AI
+            ✨ Didukung AI multi-provider gratis
           </p>
         </section>
 
@@ -169,8 +169,13 @@ export default function Home() {
             <BookOpen className="size-4" />
             ThesisAI
           </div>
-          <p>© 2026 ThesisAI — Gratis untuk mahasiswa Indonesia 🎓</p>
           <div className="flex items-center gap-4">
+            <Link href="/kebijakan-privasi" className="hover:text-foreground transition-colors underline underline-offset-2">
+              Privasi
+            </Link>
+            <Link href="/syarat-ketentuan" className="hover:text-foreground transition-colors underline underline-offset-2">
+              Syarat & Ketentuan
+            </Link>
             <a
               href="https://saweria.co/thesisai"
               target="_blank"
@@ -179,9 +184,8 @@ export default function Home() {
             >
               💝 Donasi
             </a>
-            <span className="text-xs">|</span>
-            <span>Powered by Gemini AI</span>
           </div>
+          <p>© 2026 ThesisAI</p>
         </div>
       </footer>
     </div>
