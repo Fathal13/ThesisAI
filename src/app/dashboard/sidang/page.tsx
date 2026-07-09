@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import type { Progress as ProgressType } from "@/types"
+import { SidangDisclaimer } from "@/components/disclaimer"
 
 interface Bab {
   id: string
@@ -124,6 +125,8 @@ export default function SidangPage() {
           Generate prediksi pertanyaan sidang berdasarkan bab yang sudah kamu tulis.
         </p>
       </div>
+
+      <SidangDisclaimer />
 
       {/* Setup */}
       <Card>

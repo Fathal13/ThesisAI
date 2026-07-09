@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { WritingDisclaimer } from "@/components/disclaimer"
 
 interface Bab {
   id: string
@@ -202,6 +203,8 @@ export default function WritingPage() {
           Tulis & review bab skripsi dengan bantuan AI. Fokus: saran, bukan menuliskan untukmu.
         </p>
       </div>
+
+      <WritingDisclaimer />
 
       {/* Form */}
       <Card>

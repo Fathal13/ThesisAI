@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { AcademicDisclaimerSimple } from "@/components/disclaimer"
 
 interface LiteratureResult {
   doi: string | null
@@ -122,6 +123,8 @@ export default function LiteraturePage() {
           Cari artikel ilmiah dari CrossRef, rangkum dengan AI. Pas untuk Bab 2.
         </p>
       </div>
+
+      <AcademicDisclaimerSimple />
 
       {/* Search Bar */}
       <div className="flex gap-3">
@@ -299,7 +302,7 @@ export default function LiteraturePage() {
       {/* Footer note */}
       <div className="text-center pt-4">
         <p className="text-xs text-muted-foreground">
-          Sumber: CrossRef API (gratis) · Rangkuman by AI · Tidak 100% akurat, verifikasi dengan artikel asli.
+          Sumber: CrossRef API (gratis) · Rangkuman AI · Verifikasi dengan artikel asli.
         </p>
       </div>
     </div>
