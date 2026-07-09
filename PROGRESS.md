@@ -333,4 +333,19 @@ TOTAL: ██████████████████░░░░░░�
 
 ---
 
+### ⚠️ Masalah Terbuka — Butuh Debug Besok
+
+| Masalah | Status | Detail |
+|---------|--------|--------|
+| **Login tidak redirect ke dashboard** | 🔴 Blocker | Setelah login sukses, URL berubah ke `/dashboard` tapi halaman stuck di login. Cookie session Supabase belum terbaca di middleware/page. |
+| **Email konfirmasi tidak sampai** | 🟡 Workaround | Sudah disable "Confirm email" di Supabase tapi email tetap gak sampai. Supabase free tier email sering gagal. |
+
+**Rencana besok:**
+1. Debug middleware - cek apakah session cookie terbaca
+2. Cek cookie domain/path/secure flags
+3. Coba test login di local dulu sebelum deploy
+4. Pertimbangkan ganti ke Supabase Auth Helpers (`createClientComponentClient` di client side)
+
+---
+
 > "Selesai tepat waktu bukan mimpi — tinggal dibantu dikit." 🎓
