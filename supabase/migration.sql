@@ -60,6 +60,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS bab_updated_at ON public.bab;
 CREATE TRIGGER bab_updated_at
   BEFORE UPDATE ON public.bab
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
@@ -105,6 +106,7 @@ CREATE TABLE IF NOT EXISTS public.progress (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DROP TRIGGER IF EXISTS progress_updated_at ON public.progress;
 CREATE TRIGGER progress_updated_at
   BEFORE UPDATE ON public.progress
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
@@ -120,34 +122,41 @@ ALTER TABLE public.sidang_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.progress ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: user hanya bisa baca/edit profilnya sendiri
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile"
   ON public.profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
 
 -- Bab: user hanya bisa CRUD bab miliknya sendiri
+DROP POLICY IF EXISTS "Users can manage own bab" ON public.bab;
 CREATE POLICY "Users can manage own bab"
   ON public.bab FOR ALL
   USING (auth.uid() = user_id);
 
 -- Literatures: user hanya bisa CRUD literatur miliknya
+DROP POLICY IF EXISTS "Users can manage own literatures" ON public.literatures;
 CREATE POLICY "Users can manage own literatures"
   ON public.literatures FOR ALL
   USING (auth.uid() = user_id);
 
 -- Sidang questions: user hanya bisa CRUD pertanyaan miliknya
+DROP POLICY IF EXISTS "Users can manage own questions" ON public.sidang_questions;
 CREATE POLICY "Users can manage own questions"
   ON public.sidang_questions FOR ALL
   USING (auth.uid() = user_id);
 
 -- Progress: user hanya bisa baca/edit progressnya sendiri
+DROP POLICY IF EXISTS "Users can manage own progress" ON public.progress;
 CREATE POLICY "Users can manage own progress"
   ON public.progress FOR ALL
   USING (auth.uid() = user_id);
