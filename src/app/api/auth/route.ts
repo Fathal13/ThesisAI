@@ -124,22 +124,54 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Action tidak dikenal" }, { status: 400 })
     }
 
-    // --- Sign-out (no validation needed) ---
-    if (action === "signout") {
-      const cookieStore = await cookies()
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            get(name: string) { return cookieStore.get(name)?.value },
-            set() {},
-            remove() {},
+    // --- Init Supabase client (needed for all actions) ---
+    const cookieStore = await cookies()
+    const response = NextResponse.next()
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) { return cookieStore.get(name)?.value },
+          set(name: string, value: string, options: Record<string, unknown>) {
+            response.cookies.set(name, value, {
+              ...options,
+              httpOnly: true,
+              secure: process.env.NODE_ENV === "production",
+              sameSite: "lax",
+              path: "/",
+            })
+          },
+          remove(name: string, options: Record<string, unknown>) {
+            response.cookies.set(name, "", {
+              ...options,
+              maxAge: 0,
+              httpOnly: true,
+              secure: process.env.NODE_ENV === "production",
+              sameSite: "lax",
+              path: "/",
+            })
           },
         },
-      )
+      },
+    )
+
+    // Helper to return response with cookies attached
+    function withCookies(data: unknown, init?: ResponseInit) {
+      const headers = new Headers(init?.headers)
+      // Cookies are already set via response.cookies
+      return new Response(JSON.stringify(data), {
+        ...init,
+        headers: { ...init?.headers, "Content-Type": "application/json" },
+        status: init?.status,
+      })
+    }
+
+    // --- Sign-out (needs supabase client) ---
+    if (action === "signout") {
       await supabase.auth.signOut()
-      return NextResponse.json({ success: true })
+      return withCookies({ success: true })
     }
 
     // --- Resend confirmation (only needs email) ---
@@ -149,34 +181,21 @@ export async function POST(request: Request) {
       const emailError = validateEmail(normalizedEmail)
       if (emailError) {
         auditLog(action, normalizedEmail, ip, "failure", emailError)
-        return NextResponse.json({ error: emailError }, { status: 400 })
+        return withCookies({ error: emailError }, { status: 400 })
       }
 
-      const cookieStore = await cookies()
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            get(name: string) { return cookieStore.get(name)?.value },
-            set() {},
-            remove() {},
-          },
-        },
-      )
-
-      const { data, error } = await supabase.auth.resend({
+      const { error } = await supabase.auth.resend({
         type: "signup",
         email: normalizedEmail,
       })
 
       if (error) {
         auditLog(action, normalizedEmail, ip, "failure", error?.message ?? "unknown")
-        return NextResponse.json({ error: "Gagal mengirim ulang email. Coba lagi nanti." }, { status: 500 })
+        return withCookies({ error: "Gagal mengirim ulang email. Coba lagi nanti." }, { status: 500 })
       }
 
       auditLog(action, normalizedEmail, ip, "success")
-      return NextResponse.json({
+      return withCookies({
         message: "✅ Email konfirmasi sudah dikirim ulang! Cek inbox dan folder SPAM.",
       })
     }
@@ -224,37 +243,6 @@ export async function POST(request: Request) {
     // --- Normalize email (lowercase — cegah duplicate case-sensitive) ---
     const normalizedEmail = email.toLowerCase()
 
-    // --- Init Supabase client ---
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) { return cookieStore.get(name)?.value },
-          set(name: string, value: string, options: Record<string, unknown>) {
-            cookieStore.set(name, value, {
-              ...options,
-              httpOnly: true,
-              secure: process.env.NODE_ENV === "production",
-              sameSite: "lax",
-              path: "/",
-            })
-          },
-          remove(name: string, options: Record<string, unknown>) {
-            cookieStore.set(name, "", {
-              ...options,
-              maxAge: 0,
-              httpOnly: true,
-              secure: process.env.NODE_ENV === "production",
-              sameSite: "lax",
-              path: "/",
-            })
-          },
-        },
-      },
-    )
-
     // --- Sign-in ---
     if (action === "signin") {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -264,22 +252,14 @@ export async function POST(request: Request) {
 
       if (error) {
         auditLog("signin", normalizedEmail, ip, "failure", error.message)
-        // Cek apakah error karena email belum dikonfirmasi
         if (error.message.includes("Email not confirmed") || error.message.includes("email not confirmed")) {
-          return NextResponse.json(
-            { error: "Email belum dikonfirmasi. Cek inbox (dan spam) untuk link konfirmasi, atau coba daftar ulang." },
-            { status: 401 },
-          )
+          return withCookies({ error: "Email belum dikonfirmasi. Cek inbox (dan spam) untuk link konfirmasi, atau coba daftar ulang." }, { status: 401 })
         }
-        // Jangan bocorkan apakah email terdaftar atau tidak
-        return NextResponse.json(
-          { error: "Email atau password salah." },
-          { status: 401 },
-        )
+        return withCookies({ error: "Email atau password salah." }, { status: 401 })
       }
 
       auditLog("signin", normalizedEmail, ip, "success")
-      return NextResponse.json({ user: data.user, session: data.session })
+      return withCookies({ user: data.user, session: data.session })
     }
 
     // --- Sign-up ---
@@ -287,12 +267,12 @@ export async function POST(request: Request) {
       const nama = ((body.nama as string) ?? "").trim()
 
       if (!nama || nama.length < 2 || nama.length > 100) {
-        return NextResponse.json({ error: "Nama harus diisi (2-100 karakter)." }, { status: 400 })
+        return withCookies({ error: "Nama harus diisi (2-100 karakter)." }, { status: 400 })
       }
 
       // Cegah nama dengan karakter mencurigakan
       if (/[<>{}$]/.test(nama)) {
-        return NextResponse.json({ error: "Nama mengandung karakter tidak valid." }, { status: 400 })
+        return withCookies({ error: "Nama mengandung karakter tidak valid." }, { status: 400 })
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -306,19 +286,19 @@ export async function POST(request: Request) {
       if (error) {
         auditLog("signup", normalizedEmail, ip, "failure", error.message)
         if (error.message.includes("already")) {
-          return NextResponse.json(
+          return withCookies(
             { error: "Email sudah terdaftar. Silakan login." },
             { status: 409 },
           )
         }
-        return NextResponse.json({ error: "Gagal mendaftar. Coba lagi nanti." }, { status: 500 })
+        return withCookies({ error: "Gagal mendaftar. Coba lagi nanti." }, { status: 500 })
       }
 
       auditLog("signup", normalizedEmail, ip, "success")
 
       // Catatan: di Supabase free tier, email konfirmasi sering telat/gagal
       // Solusi: beri instruksi jelas
-      return NextResponse.json({
+      return withCookies({
         user: data.user,
         message: "📧 Email konfirmasi sudah dikirim! Cek inbox dan folder SPAM. Kalau tidak ada dalam 5 menit, coba daftar ulang atau login — kadang email sudah terdaftar tanpa perlu konfirmasi.",
         confirmationSent: true,
