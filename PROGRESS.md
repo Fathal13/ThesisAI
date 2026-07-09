@@ -57,13 +57,18 @@
 - [x] **Aktifkan Row Level Security (RLS) di SEMUA tabel** — user hanya bisa akses datanya sendiri
 - [x] Uji RLS: pastikan user A tidak bisa membaca data user B
 
-### 1.3 — AI Layer (Gemini) 🟢 [MVP]
+### 1.3 — AI Layer (Gemini + Fallback) 🟢 [MVP]
 - [x] Setup Google AI Studio → dapatkan API Key gratis
 - [x] Install `@ai-sdk/google` + `ai`
 - [x] Buat `lib/ai.ts` — helper functions untuk semua fitur AI (dengan retry + rate limit handling)
 - [x] Buat API route `/api/ai` — server-only, key tidak ke client
 - [x] Test koneksi Gemini (pastikan free tier aktif)
 - [x] Tangani rate limit & kuota: retry + pesan error ramah + caching hasil AI (di `lib/ai.ts`)
+- [x] **Fallback: NVIDIA NIM (free tier)** — tambahkan provider NVIDIA untuk model Llama/Nemotron
+- [x] **Fallback: OpenRouter (free tier)** — akses berbagai model gratis via single API key
+- [x] **Fallback: Groq (free tier)** — inference cepat untuk Llama/Mixtral
+- [x] Implementasi auto-fallback di `lib/ai.ts` saat Gemini quota habis / error
+- [x] UI status: tampilkan provider AI yang sedang aktif (`getActiveProvider()`)
 
 ---
 
@@ -230,7 +235,7 @@ Phase 6: Dashboard      ██████████████░░░░�
 Phase 7: Donasi         ░░░░░░░░░░░░░░░░░░░░░░   0%
 Phase 8: Final + Launch ░░░░░░░░░░░░░░░░░░░░░░   0%
 
-TOTAL: ████████████████░░░░░░░░░░░░░░░░░░░░░░   ~35%
+TOTAL: ████████████████░░░░░░░░░░░░░░░░░░░░░░   ~37%
 ```
 
 ---
@@ -250,7 +255,7 @@ TOTAL: ████████████████░░░░░░░░�
 
 | Risiko | Dampak | Mitigasi |
 | --- | --- | --- |
-| Kuota Gemini free habis | Fitur AI mati | Caching, rate-limit per user, pesan error jelas |
+| Kuota Gemini free habis | Fitur AI mati | Caching, rate-limit per user, **auto-fallback ke NVIDIA/OpenRouter/Groq**, pesan error jelas |
 | Isu integritas akademik | Reputasi/legal | Positioning "asisten", disclaimer, batasi generate |
 | Vercel Hobby non-komersial | ToS terlanggar saat donasi | Pindah host / plan sebelum monetisasi |
 | Data pribadi bocor | Legal (UU PDP) | RLS Supabase, server-side keys, privacy policy |
@@ -260,7 +265,8 @@ TOTAL: ████████████████░░░░░░░░�
 
 ## 📝 Catatan
 
-- **AI hanya pakai Gemini (GRATIS).** Claude hanya akan ditambahkan jika donasi sudah cukup.
+- **AI utama: Gemini (GRATIS).** Fallback: NVIDIA NIM, OpenRouter, Groq — semuanya gratis tier.
+- **Claude & model berbayar lain** hanya akan ditambahkan jika donasi sudah cukup.
 - **Semua fitur gratis.** Tidak ada paksa bayar.
 - **Donasi 100% sukarela** — via Saweria/Ko-fi, tanpa backend.
 - **MVP pertama fokus fungsional dulu**, polish belakangan. Kerjakan dulu semua yang bertanda 🟢 [MVP].
@@ -274,6 +280,24 @@ TOTAL: ████████████████░░░░░░░░�
 - Build & lint passing (0 errors) ✅
 - Fix: Supabase URL, type errors, security leaks di .env.example
 - **Tahap 1 (100%)**, **Tahap 2 (100%)**, Total ~35%
+
+### 🗓️ Sesi 9 Juli 2026
+- Implementasi multi-provider AI fallback:
+  - Install `@ai-sdk/openai` ✅
+  - Rewrite `lib/ai.ts` dengan chain: Gemini → NVIDIA NIM → OpenRouter → Groq ✅
+  - Error handling: rate limit retry, exponential backoff, auth/model skip, safety throw, semua gagal → `AIAllProvidersFailedError` ✅
+  - Update semua API routes pakai centralized `lib/ai.ts` ✅
+  - Tambah env vars ke `.env.example` ✅
+- **Testing & Verifikasi:**
+  - ✅ **Gemini** — primary (rate limit → fallback chain berfungsi)
+  - ✅ **NVIDIA NIM** — model `nvidia/nemotron-3-nano-30b-a3b` (force-test: Motivasi, Summarize, Review, Sidang semua WORK)
+  - ✅ **OpenRouter** — model `mistralai/mistral-7b-instruct:free` (force-test: Motivasi, Summarize, Review, Sidang semua WORK)
+  - ✅ **Groq** — model `llama-3.3-70b-versatile` (tested saat Gemini & NVIDIA habis)
+  - ✅ **RLS** — SEMUA tabel 42501 permission denied tanpa auth, dashboard redirect 307
+  - ✅ **Fallback chain verifikasi:** Gemini → NVIDIA → OpenRouter → Groq semua teruji
+  - ✅ **TypeScript** — 0 errors
+- **Progress:** Tahap 1.3 — AI Layer (Gemini + Fallback) 100% ✅
+- **Total ~37%**
 
 ---
 
