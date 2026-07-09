@@ -39,8 +39,8 @@
 - [x] Setup Tailwind CSS + Shadcn UI
 - [x] Setup ESLint + Prettier
 - [x] Init Git repo + push ke GitHub
-- [ ] Deploy ke Vercel (thesisai.vercel.app)
-- [ ] Simpan semua secret di env vars (JANGAN commit `.env`)
+- [x] Deploy ke Vercel (thesisai.vercel.app)
+- [x] Simpan semua secret di env vars (JANGAN commit `.env`)
 
 ### 1.2 — Database & Auth (Supabase) 🟢 [MVP]
 - [x] Setup Supabase project (free tier)
@@ -54,15 +54,15 @@
 - [x] Setup `middleware.ts` untuk protected routes
 - [x] Setup API route `/api/auth` untuk signin/signup/signout
 - [x] Setup halaman login + register (auth/login)
-- [x] **Aktifkan Row Level Security (RLS) di SEMUA tabel** — user hanya bisa akses datanya sendiri (SQL siap di `supabase/migration.sql`)
-- [ ] Uji RLS: pastikan user A tidak bisa membaca data user B
+- [x] **Aktifkan Row Level Security (RLS) di SEMUA tabel** — user hanya bisa akses datanya sendiri
+- [x] Uji RLS: pastikan user A tidak bisa membaca data user B
 
 ### 1.3 — AI Layer (Gemini) 🟢 [MVP]
-- [ ] Setup Google AI Studio → dapatkan API Key gratis
+- [x] Setup Google AI Studio → dapatkan API Key gratis
 - [x] Install `@ai-sdk/google` + `ai`
 - [x] Buat `lib/ai.ts` — helper functions untuk semua fitur AI (dengan retry + rate limit handling)
 - [x] Buat API route `/api/ai` — server-only, key tidak ke client
-- [ ] Test koneksi Gemini (pastikan free tier aktif)
+- [x] Test koneksi Gemini (pastikan free tier aktif)
 - [x] Tangani rate limit & kuota: retry + pesan error ramah + caching hasil AI (di `lib/ai.ts`)
 
 ---
@@ -88,18 +88,18 @@
 ## 🎯 Tahap 3: Literatur Explorer 📚
 
 ### 3.1 — Search Artikel 🟢 [MVP]
-- [ ] Input pencarian (judul/topik/penulis)
-- [ ] Integrasi CrossRef API (gratis) — sertakan `mailto` di header untuk pool sopan
-- [ ] Tampilkan hasil: judul, penulis, tahun, DOI, link
-- [ ] Pagination hasil pencarian
-- [ ] Tangani error/timeout API dengan anggun
+- [x] Input pencarian (judul/topik/penulis)
+- [x] Integrasi CrossRef API (gratis) — sertakan `mailto` di header untuk pool sopan
+- [x] Tampilkan hasil: judul, penulis, tahun, DOI, link
+- [x] Pagination hasil pencarian
+- [x] Tangani error/timeout API dengan anggun
 
 ### 3.2 — AI Summarize 🟢 [MVP]
-- [ ] Tombol "Rangkum dengan AI" per artikel
-- [ ] Gemini generate: problem, metode, hasil, gap
+- [x] Tombol "Rangkum dengan AI" per artikel
+- [x] Gemini generate: problem, metode, hasil, gap
 - [ ] **Cache rangkuman** agar tidak boros kuota untuk artikel yang sama
 - [ ] Simpan rangkuman ke database
-- [ ] Copy rangkuman ke clipboard
+- [x] Copy rangkuman ke clipboard
 
 ### 3.3 — Literature Collection 🔵 [LATER]
 - [ ] Tombol "Simpan ke Koleksi Saya"
@@ -114,25 +114,25 @@
 > ⚠️ Fokus: **review & saran**, bukan menulis isi bab untuk user.
 
 ### 4.1 — Input Bab 🟢 [MVP]
-- [ ] Form input judul bab (Bab 1-5)
-- [ ] Textarea / rich text untuk konten bab
-- [ ] Target deadline per bab
+- [x] Form input judul bab (Bab 1-5)
+- [x] Textarea / rich text untuk konten bab
+- [x] Target deadline per bab
 - [ ] Upload file (docx/txt) — optional 🔵 [LATER]
 
 ### 4.2 — AI Review 🟢 [MVP]
-- [ ] Tombol "Review dengan AI"
-- [ ] Gemini check:
-  - [ ] Grammar & typo (khusus akademik)
-  - [ ] Rekomendasi kata lebih formal
-  - [ ] Struktur bab: apakah sesuai standar?
-  - [ ] Deteksi kalimat ambigu
-- [ ] Tampilkan hasil review per kategori
-- [ ] Copy saran perbaikan
+- [x] Tombol "Review dengan AI"
+- [x] Gemini check:
+  - [x] Grammar & typo (khusus akademik)
+  - [x] Rekomendasi kata lebih formal
+  - [x] Struktur bab: apakah sesuai standar?
+  - [x] Deteksi kalimat ambigu
+- [x] Tampilkan hasil review per kategori
+- [x] Copy saran perbaikan
 
 ### 4.3 — Manajemen Bab 🟢 [MVP]
-- [ ] List semua bab user
-- [ ] Status per bab (draft, review, revisi, selesai)
-- [ ] Edit & hapus bab
+- [x] List semua bab user
+- [x] Status per bab (draft, review, revisi, selesai)
+- [x] Edit & hapus bab
 - [ ] Update progress otomatis saat status berubah
 
 ---
@@ -140,10 +140,10 @@
 ## 🎯 Tahap 5: Sidang Prep Generator 🎤
 
 ### 5.1 — Generate Pertanyaan 🟢 [MVP]
-- [ ] Pilih bab yang ingin dijadikan bahan
-- [ ] Gemini generate 10-15 pertanyaan berdasarkan konten bab
-- [ ] Kategorisasi: Metodologi, Teori, Hasil, Impak
-- [ ] Tampilkan pertanyaan + kategori
+- [x] Pilih bab yang ingin dijadikan bahan
+- [x] Gemini generate 10-15 pertanyaan berdasarkan konten bab
+- [x] Kategorisasi: Metodologi, Teori, Hasil, Impak
+- [x] Tampilkan pertanyaan + kategori
 
 ### 5.2 — Simulasi Jawaban 🔵 [LATER]
 - [ ] Tombol "Lihat Contoh Jawaban" (ditandai jelas: contoh latihan)
@@ -161,10 +161,10 @@
 ## 🎯 Tahap 6: Progress Dashboard 📊
 
 ### 6.1 — Overview 🟢 [MVP]
-- [ ] Total progress (berapa bab dari 5 sudah selesai)
-- [ ] Progress bar per bab
-- [ ] Deadline countdown
-- [ ] Motivasi quotes random
+- [x] Total progress (berapa bab dari 5 sudah selesai)
+- [x] Progress bar per bab
+- [x] Deadline countdown
+- [x] Motivasi quotes random
 
 ### 6.2 — Timeline 🔵 [LATER]
 - [ ] Deadline sidang (input manual)
@@ -221,16 +221,16 @@
 > Perbarui angka ini setiap menyelesaikan task. Hitung: `[x]` ÷ total checkbox per tahap.
 
 ```
-Phase 1: Foundation     ███████░░░░░░░░░░░░░░░   ~68%
+Phase 1: Foundation     ██████████████████████   100%
 Phase 2: Landing Page   ████████████████████   100%
-Phase 3: Literatur      ░░░░░░░░░░░░░░░░░░░░   0%
-Phase 4: Writing        ░░░░░░░░░░░░░░░░░░░░   0%
-Phase 5: Sidang         ░░░░░░░░░░░░░░░░░░░░   0%
-Phase 6: Dashboard      ░░░░░░░░░░░░░░░░░░░░   0%
-Phase 7: Donasi         ░░░░░░░░░░░░░░░░░░░░   0%
-Phase 8: Final + Launch ░░░░░░░░░░░░░░░░░░░░   0%
+Phase 3: Literatur      ███████░░░░░░░░░░░░░░░   ~30%
+Phase 4: Writing        ███████░░░░░░░░░░░░░░░   ~30%
+Phase 5: Sidang         █████░░░░░░░░░░░░░░░░░   ~20%
+Phase 6: Dashboard      ██████████████░░░░░░░░   ~60%
+Phase 7: Donasi         ░░░░░░░░░░░░░░░░░░░░░░   0%
+Phase 8: Final + Launch ░░░░░░░░░░░░░░░░░░░░░░   0%
 
-TOTAL: ██████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   ~24%
+TOTAL: ████████████████░░░░░░░░░░░░░░░░░░░░░░   ~35%
 ```
 
 ---
@@ -265,6 +265,15 @@ TOTAL: ██████░░░░░░░░░░░░░░░░░░�
 - **Donasi 100% sukarela** — via Saweria/Ko-fi, tanpa backend.
 - **MVP pertama fokus fungsional dulu**, polish belakangan. Kerjakan dulu semua yang bertanda 🟢 [MVP].
 - **Keamanan bukan opsional:** RLS + server-side API key + env vars sejak awal.
+
+### 🗓️ Sesi 8 Juli 2026
+- Deploy ke Vercel ✅ (thesisai-eight.vercel.app)
+- RLS aktif & terverifikasi ✅ (GRANT + WITH CHECK + DROP IF EXISTS)
+- Gemini API key setup ✅ (quota habis, tunggu reset harian)
+- AUTH_SECRET di-generate ✅
+- Build & lint passing (0 errors) ✅
+- Fix: Supabase URL, type errors, security leaks di .env.example
+- **Tahap 1 (100%)**, **Tahap 2 (100%)**, Total ~35%
 
 ---
 
