@@ -121,6 +121,11 @@ ALTER TABLE public.literatures ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sidang_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.progress ENABLE ROW LEVEL SECURITY;
 
+-- Grant akses DML ke role authenticated (wajib supaya RLS bisa jalan)
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+
 -- Profiles: user hanya bisa baca/edit profilnya sendiri
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
@@ -140,23 +145,27 @@ CREATE POLICY "Users can update own profile"
 -- Bab: user hanya bisa CRUD bab miliknya sendiri
 DROP POLICY IF EXISTS "Users can manage own bab" ON public.bab;
 CREATE POLICY "Users can manage own bab"
-  ON public.bab FOR ALL
-  USING (auth.uid() = user_id);
+  ON public.bab
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- Literatures: user hanya bisa CRUD literatur miliknya
 DROP POLICY IF EXISTS "Users can manage own literatures" ON public.literatures;
 CREATE POLICY "Users can manage own literatures"
-  ON public.literatures FOR ALL
-  USING (auth.uid() = user_id);
+  ON public.literatures
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- Sidang questions: user hanya bisa CRUD pertanyaan miliknya
 DROP POLICY IF EXISTS "Users can manage own questions" ON public.sidang_questions;
 CREATE POLICY "Users can manage own questions"
-  ON public.sidang_questions FOR ALL
-  USING (auth.uid() = user_id);
+  ON public.sidang_questions
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- Progress: user hanya bisa baca/edit progressnya sendiri
 DROP POLICY IF EXISTS "Users can manage own progress" ON public.progress;
 CREATE POLICY "Users can manage own progress"
-  ON public.progress FOR ALL
-  USING (auth.uid() = user_id);
+  ON public.progress
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
