@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Brain, Loader2, Sparkles, ChevronDown, ChevronUp, CheckCircle, Bookmark } from "lucide-react"
+import { Brain, Loader2, Sparkles, ChevronDown, ChevronUp, Bookmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -60,7 +60,7 @@ export default function SidangPage() {
     } catch {}
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchBab(); fetchProgress() }, [])
 
   async function handleGenerate() {

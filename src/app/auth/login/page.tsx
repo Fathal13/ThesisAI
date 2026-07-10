@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState, useEffect } from "react"
+import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { BookOpen, Loader2, Mail, AlertCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"

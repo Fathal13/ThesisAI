@@ -2,13 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { BarChart3, Loader2, CalendarDays, Target, TrendingUp, GraduationCap, Sparkles } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
-import type { Bab as BabType, Progress as ProgressType } from "@/types"
 
 interface Bab {
   id: string
@@ -56,23 +54,22 @@ export default function ProgressPage() {
     try {
       const { supabase } = await import("@/lib/supabase")
 
-      const [babRes, progRes] = await Promise.all([
-        supabase.from("bab").select("*").order("nomor_bab", { ascending: true }),
-        supabase.from("progress").select("*").single().then(r => r as unknown as { data: ProgressData | null; error: Record<string, any> }), // eslint-disable-line @typescript-eslint/no-explicit-any
-      ])
+      const babRes = await supabase.from("bab").select("*").order("nomor_bab", { ascending: true })
+        const progRes = await supabase.from("progress").select("*").single()
 
       if (babRes.data) setBabList(babRes.data as unknown as Bab[])
-      if (progRes.data) {
-        setProgress(progRes.data)
-        if (progRes.data.deadline_sidang) setDeadlineInput(progRes.data.deadline_sidang)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const progData = progRes.data as Record<string, any> | null
+      if (progData) {
+        setProgress(progData as unknown as ProgressData)
+        if (progData.deadline_sidang) setDeadlineInput(progData.deadline_sidang as string)
       }
     } catch {}
     finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchData() // eslint-disable-line react-hooks/set-state-in-effect
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  useEffect(() => { fetchData() } // eslint-disable-line react-hooks/set-state-in-effect
+  , [])
 
   async function generateMotivasi() {
     try {
@@ -85,20 +82,13 @@ export default function ProgressPage() {
         }),
       })
       const data = await res.json()
-      // Clean up the response from our AI route
-      try {
-        const parsed = JSON.parse(data.result?.replace(/```(json)?\n?/g, "") ?? "")
-        // It's not JSON, just use the text
-        // Actually our motivasi endpoint returns plain text inside result
-      } catch {}
       if (data.result) setMotivasi(data.result)
     } catch {}
   }
 
   useEffect(() => {
     if (progress.bab_selesai > 0 && !motivasi) { generateMotivasi() } // eslint-disable-line react-hooks/set-state-in-effect
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progress.bab_selesai])
+  }, [progress.bab_selesai]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function saveDeadline() {
     try {

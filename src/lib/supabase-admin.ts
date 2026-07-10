@@ -33,7 +33,7 @@ function getSupabaseAdmin() {
 export async function autoConfirmUser(userId: string) {
   try {
     const supabaseAdmin = getSupabaseAdmin()
-    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
       email_confirm: true,
     })
 

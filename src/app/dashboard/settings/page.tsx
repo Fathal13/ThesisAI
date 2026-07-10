@@ -33,7 +33,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadProfile() // eslint-disable-line react-hooks/set-state-in-effect
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleSave(e: React.FormEvent) {

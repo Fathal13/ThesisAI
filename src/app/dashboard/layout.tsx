@@ -47,7 +47,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="min-h-full">
       <DashboardSidebar user={user} />
-      <main className="transition-all duration-200 pl-64">
+      <main id="main-content" className="transition-all duration-200 pl-64">
         <div className="container mx-auto p-6 md:p-8 max-w-6xl">
           {children}
         </div>

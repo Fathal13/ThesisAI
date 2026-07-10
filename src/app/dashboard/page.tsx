@@ -3,7 +3,6 @@ import { cookies } from "next/headers"
 import Link from "next/link"
 import { BookOpen, Edit3, Brain, BarChart3, ArrowRight, GraduationCap } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const quickActions = [
