@@ -22,6 +22,34 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 
+function LogoutButton({ collapsed }: { collapsed: boolean }) {
+  async function handleLogout() {
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "signout" }),
+      })
+      if (res.ok) {
+        window.location.href = "/auth/login"
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      className={cn("w-full justify-start text-destructive hover:bg-accent hover:text-accent-foreground", collapsed && "px-2")}
+      onClick={handleLogout}
+    >
+      <LogOut className="size-4" />
+      {collapsed ? null : <span>Keluar</span>}
+    </Button>
+  )
+}
+
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Literatur", href: "/dashboard/literature", icon: BookOpen },
@@ -133,13 +161,7 @@ export function DashboardSidebar({ user }: { user: { email?: string; user_metada
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <form action="/api/auth" method="POST">
-                    <input type="hidden" name="action" value="signout" />
-                    <button type="submit" className="flex w-full items-center gap-2 text-left text-destructive hover:bg-accent hover:text-accent-foreground">
-                      <LogOut className="size-4" />
-                      Keluar
-                    </button>
-                  </form>
+                  <LogoutButton collapsed={false} />
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -159,13 +181,7 @@ export function DashboardSidebar({ user }: { user: { email?: string; user_metada
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <form action="/api/auth" method="POST">
-                  <input type="hidden" name="action" value="signout" />
-                  <button type="submit" className="flex w-full items-center gap-2 text-left text-destructive hover:bg-accent hover:text-accent-foreground">
-                    <LogOut className="size-4" />
-                    Keluar
-                  </button>
-                </form>
+                <LogoutButton collapsed={true} />
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
