@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { BookOpen, Loader2, Mail, AlertCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -115,11 +116,11 @@ function LoginForm() {
 
   return (
     <div className="min-h-full flex flex-col">
-      {/* Header */}
-      <header className="container mx-auto px-4 py-6 flex items-center gap-2 font-bold text-xl">
+      {/* Header — bisa diklik kembali ke beranda */}
+      <Link href="/" className="container mx-auto px-4 py-6 flex items-center gap-2 font-bold text-xl hover:text-primary transition-colors">
         <BookOpen className="size-6 text-primary" />
         <span>ThesisAI</span>
-      </header>
+      </Link>
 
       <main className="flex-1 flex items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md">
