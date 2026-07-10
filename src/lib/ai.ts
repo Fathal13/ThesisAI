@@ -444,6 +444,35 @@ Buat bervariasi kategorinya. Gunakan Bahasa Indonesia. Berikan jawaban yang akad
 //  Dashboard — Motivasi / tips random
 // ──────────────────────────────────────────
 
+// ──────────────────────────────────────────
+//  Literature — Ekstraksi kata kunci pencarian
+// ──────────────────────────────────────────
+
+/** Ekstrak 2-3 keyword penting dari query pencarian user untuk CrossRef */
+export async function extractSearchKeywords(query: string): Promise<string> {
+  const prompt = `
+Anda adalah asisten akademik. Dari query pencarian artikel ilmiah berikut, ekstrak 2-3 kata kunci PALING PENTING yang akan digunakan untuk mencari di CrossRef.
+
+Query: "${query}"
+
+Aturan:
+- Pilih kata kunci yang paling spesifik dan relevan (bukan kata umum seperti "dampak", "pengaruh", "perkembangan", "peran", "analisis", "studi")
+- Gabungkan dengan AND — contoh: "Artificial Intelligence AND Employment"
+- Gunakan Bahasa Inggris untuk hasil yang lebih luas di database internasional
+- Maksimal 3 kata kunci yang digabung dengan AND
+- Jika query sudah dalam Bahasa Inggris, pertahankan
+
+PENTING: Berikan HANYA teks query tanpa markdown, tanpa penjelasan, tanpa tanda petik.
+Contoh output: "artificial intelligence AND employment"
+`
+
+  const { text } = await withFallbackAndRetry((model) =>
+    generateText({ model, prompt }),
+  )
+
+  return text.trim().replace(/^["']|["']$/g, "").replace(/```/g, "").trim()
+}
+
 export async function generateMotivation(
   progress: number,
   nama: string,

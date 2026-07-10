@@ -59,6 +59,8 @@ export default function LiteraturePage() {
   const [collectionSearch, setCollectionSearch] = useState("")
   const [activeTab, setActiveTab] = useState("cari")
 
+  const [searchKeywords, setSearchKeywords] = useState<string | null>(null)
+
   const search = useCallback(async (pageNum = 0) => {
     if (!query || query.length < 3) {
       setError("Minimal 3 karakter untuk mencari.")
@@ -68,6 +70,7 @@ export default function LiteraturePage() {
     setLoading(true)
     setError("")
     setSearched(true)
+    setSearchKeywords(null)
 
     try {
       const res = await fetch(`/api/literature/search?q=${encodeURIComponent(query)}&page=${pageNum}`)
@@ -79,8 +82,9 @@ export default function LiteraturePage() {
       }
 
       setResults(data.results)
-      setTotal(data.total)
+      setTotal(data.totalApi ?? data.results.length)
       setPage(data.page)
+      if (data.searchQuery) setSearchKeywords(data.searchQuery)
     } catch {
       setError("Gagal terhubung ke server. Coba lagi.")
     } finally {
@@ -246,6 +250,12 @@ export default function LiteraturePage() {
             </div>
           )}
 
+          {/* Search tips */}
+          <div className="text-xs text-muted-foreground mb-4">
+            💡 Tips: Gunakan kata kunci spesifik (mis. Artificial Intelligence, Lapangan Pekerjaan).
+            Hasil tidak terbatas pada Indonesia — mencakup jurnal internasional via CrossRef.
+          </div>
+
           {/* Results */}
           {loading ? (
             <div className="flex items-center justify-center py-20">
@@ -254,8 +264,14 @@ export default function LiteraturePage() {
             </div>
           ) : results.length > 0 ? (
             <>
+              {searchKeywords && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                  <span>🔍 Kata kunci:</span>
+                  <code className="bg-muted px-2 py-0.5 rounded text-xs">{searchKeywords}</code>
+                </div>
+              )}
               <p className="text-sm text-muted-foreground">
-                Menampilkan {results.length} dari {total.toLocaleString("id-ID")} hasil
+                Menampilkan {results.length} hasil
               </p>
 
               <div className="space-y-4">
