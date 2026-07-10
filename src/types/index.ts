@@ -66,6 +66,7 @@ export interface SidangQuestion {
   jawaban_ai: string
   user_answer: string | null
   mastered: boolean
+  favorit: boolean
   created_at: string
 }
 

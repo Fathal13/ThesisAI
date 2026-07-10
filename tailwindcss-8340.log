@@ -1,0 +1,98 @@
+2026-07-10T12:35:11.944344Z  INFO tailwindcss_oxide::scanner: Provided sources:
+2026-07-10T12:35:11.948135Z  INFO tailwindcss_oxide::scanner: Source: PublicSourceEntry { base: "D:\\New folder\\thesisai", pattern: "**/*", negated: false }
+2026-07-10T12:35:11.955262Z  INFO tailwindcss_oxide::scanner: Optimized sources:
+2026-07-10T12:35:11.955333Z  INFO tailwindcss_oxide::scanner: Source: Auto { base: "D:\\New folder\\thesisai" }
+2026-07-10T12:35:11.960183Z  INFO discover_sources: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:11.960324Z  INFO discover_sources:walk_synchronous: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.001058Z  INFO discover_sources:walk_synchronous: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.010775Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\AGENTS.md"
+2026-07-10T12:35:12.011803Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\dashboard\\writing\\page.tsx"
+2026-07-10T12:35:12.012797Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\kebijakan-privasi\\page.tsx"
+2026-07-10T12:35:12.013745Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\layout.tsx"
+2026-07-10T12:35:12.013896Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\literature\\collection\\route.ts"
+2026-07-10T12:35:12.014458Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\page.tsx"
+2026-07-10T12:35:12.014613Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\literature\\save\\route.ts"
+2026-07-10T12:35:12.015298Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\robots.ts"
+2026-07-10T12:35:12.015316Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\literature\\search\\route.ts"
+2026-07-10T12:35:12.015669Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\CLAUDE.md"
+2026-07-10T12:35:12.016115Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\sitemap.ts"
+2026-07-10T12:35:12.016822Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\syarat-ketentuan\\page.tsx"
+2026-07-10T12:35:12.017392Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\auth\\login\\page.tsx"
+2026-07-10T12:35:12.017560Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\dashboard\\sidebar.tsx"
+2026-07-10T12:35:12.018296Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\auth\\page.tsx"
+2026-07-10T12:35:12.018296Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\disclaimer.tsx"
+2026-07-10T12:35:12.019502Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\auth\\register\\page.tsx"
+2026-07-10T12:35:12.019502Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\skip-to-content.tsx"
+2026-07-10T12:35:12.020502Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\alert.tsx"
+2026-07-10T12:35:12.021396Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\avatar.tsx"
+2026-07-10T12:35:12.022317Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\badge.tsx"
+2026-07-10T12:35:12.022556Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\components.json"
+2026-07-10T12:35:12.022607Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\dashboard\\layout.tsx"
+2026-07-10T12:35:12.023149Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\button.tsx"
+2026-07-10T12:35:12.023384Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\literature\\summarize\\route.ts"
+2026-07-10T12:35:12.024000Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\card.tsx"
+2026-07-10T12:35:12.024851Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\dropdown-menu.tsx"
+2026-07-10T12:35:12.025877Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\input.tsx"
+2026-07-10T12:35:12.026793Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\label.tsx"
+2026-07-10T12:35:12.027803Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\progress.tsx"
+2026-07-10T12:35:12.028097Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\eslint.config.mjs"
+2026-07-10T12:35:12.028729Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\scroll-area.tsx"
+2026-07-10T12:35:12.029575Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\select.tsx"
+2026-07-10T12:35:12.029778Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\next.config.ts"
+2026-07-10T12:35:12.029956Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\package.json"
+2026-07-10T12:35:12.030432Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\separator.tsx"
+2026-07-10T12:35:12.031189Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\tabs.tsx"
+2026-07-10T12:35:12.032000Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\textarea.tsx"
+2026-07-10T12:35:12.032883Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\components\\ui\\tooltip.tsx"
+2026-07-10T12:35:12.033840Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\lib\\ai.ts"
+2026-07-10T12:35:12.034150Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\dashboard\\literature\\page.tsx"
+2026-07-10T12:35:12.034720Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\lib\\rate-limit.ts"
+2026-07-10T12:35:12.036872Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\lib\\supabase-admin.ts"
+2026-07-10T12:35:12.038237Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\lib\\supabase.ts"
+2026-07-10T12:35:12.039293Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\lib\\utils.ts"
+2026-07-10T12:35:12.040227Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\middleware.ts"
+2026-07-10T12:35:12.041205Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\types\\index.ts"
+2026-07-10T12:35:12.042349Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\supabase\\migration.sql"
+2026-07-10T12:35:12.043230Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\tsconfig.json"
+2026-07-10T12:35:12.044138Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\writing\\review\\route.ts"
+2026-07-10T12:35:12.044941Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\writing\\upload\\route.ts"
+2026-07-10T12:35:12.045898Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\dashboard\\progress\\page.tsx"
+2026-07-10T12:35:12.046740Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\dashboard\\settings\\page.tsx"
+2026-07-10T12:35:12.047625Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\dashboard\\sidang\\page.tsx"
+2026-07-10T12:35:12.048518Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\public\\file.svg"
+2026-07-10T12:35:12.049437Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\public\\globe.svg"
+2026-07-10T12:35:12.049749Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\postcss.config.mjs"
+2026-07-10T12:35:12.050356Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\public\\next.svg"
+2026-07-10T12:35:12.051127Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\public\\vercel.svg"
+2026-07-10T12:35:12.051416Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\PROGRESS.md"
+2026-07-10T12:35:12.052280Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\public\\window.svg"
+2026-07-10T12:35:12.053194Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\README.md"
+2026-07-10T12:35:12.054967Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\sidang\\generate\\route.ts"
+2026-07-10T12:35:12.055849Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\auth\\route.ts"
+2026-07-10T12:35:12.056148Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\progress\\recalculate\\route.ts"
+2026-07-10T12:35:12.056743Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\csrf\\route.ts"
+2026-07-10T12:35:12.056866Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\dashboard\\page.tsx"
+2026-07-10T12:35:12.062537Z  INFO tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\api\\ai\\route.ts"
+2026-07-10T12:35:12.066932Z  INFO discover_sources: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.066981Z  INFO extract_candidates: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.066993Z  INFO extract_candidates:parse_all_blobs: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.067008Z  INFO extract_candidates:parse_all_blobs:extract: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.087729Z  INFO extract_candidates:parse_all_blobs:extract: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.088022Z  INFO extract_candidates:parse_all_blobs: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.088070Z  INFO extract_candidates:read_all_files: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.088083Z  INFO extract_candidates:read_all_files: tailwindcss_oxide::scanner: Reading 1 file(s)
+2026-07-10T12:35:12.089012Z  INFO extract_candidates:read_all_files: tailwindcss_oxide::scanner: Reading "D:\\New folder\\thesisai\\src\\app\\globals.css"
+2026-07-10T12:35:12.089049Z  INFO extract_candidates:read_all_files: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.089065Z  INFO extract_candidates:extract_css_variables: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.089076Z  INFO extract_candidates:extract_css_variables:extract: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.089522Z  INFO extract_candidates:extract_css_variables:extract: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.089557Z  INFO extract_candidates:extract_css_variables: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.090657Z  INFO extract_candidates: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.093054Z  INFO get_files: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.093101Z  INFO get_files:discover_sources: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.093114Z  INFO get_files:discover_sources: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.093755Z  INFO get_files: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.094925Z  INFO get_globs: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.094966Z  INFO get_globs:discover_sources: tailwindcss_oxide::scanner: enter
+2026-07-10T12:35:12.094977Z  INFO get_globs:discover_sources: tailwindcss_oxide::scanner: exit
+2026-07-10T12:35:12.118707Z  INFO get_globs: tailwindcss_oxide::scanner: exit

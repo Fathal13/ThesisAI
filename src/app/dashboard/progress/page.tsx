@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { BarChart3, Loader2, CalendarDays, Target, TrendingUp, GraduationCap, Sparkles } from "lucide-react"
+import { BarChart3, Loader2, CalendarDays, Target, TrendingUp, GraduationCap, Sparkles, AlertTriangle, Clock } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { cn } from "@/lib/utils"
 
 interface Bab {
   id: string
@@ -31,16 +32,38 @@ const BAB_NAMES: Record<number, string> = {
   5: "Bab 5: Kesimpulan",
 }
 
-function daysUntil(dateStr: string): { days: number; label: string; urgent: boolean } {
-  const now = new Date()
-  const target = new Date(dateStr)
-  const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+function generateTimeline(deadline: string | null, totalBab: number) {
+  if (!deadline) return null
 
-  if (diff < 0) return { days: Math.abs(diff), label: `${Math.abs(diff)} hari sudah lewat!`, urgent: true }
-  if (diff === 0) return { days: 0, label: "Hari ini! 🔥", urgent: true }
-  if (diff <= 7) return { days: diff, label: `${diff} hari lagi 🏃`, urgent: true }
-  return { days: diff, label: `${diff} hari lagi`, urgent: false }
+  const now = new Date()
+  const deadlineDate = new Date(deadline)
+  const totalDays = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (totalDays <= 0) return null
+
+  const daysPerBab = Math.max(1, Math.floor(totalDays / totalBab))
+
+  return Array.from({ length: totalBab }, (_, i) => {
+    const babNum = i + 1
+    const startDay = i * daysPerBab
+    const endDay = (i + 1) * daysPerBab
+
+    const targetStart = new Date(now)
+    targetStart.setDate(now.getDate() + startDay)
+
+    const targetEnd = new Date(now)
+    targetEnd.setDate(now.getDate() + endDay)
+
+    return {
+      bab: babNum,
+      nama: BAB_NAMES[babNum],
+      targetStart: targetStart.toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" }),
+      targetEnd: targetEnd.toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" }),
+      daysLeft: endDay,
+    }
+  })
 }
+  // (daysUntil function removed — now using generateTimeline)
 
 export default function ProgressPage() {
   const [babList, setBabList] = useState<Bab[]>([])
@@ -103,7 +126,10 @@ export default function ProgressPage() {
 
   const selesaiCount = babList.filter((b) => b.status === "selesai").length
   const pct = progress.total_bab > 0 ? Math.round((selesaiCount / progress.total_bab) * 100) : 0
-  const deadlineInfo = progress.deadline_sidang ? daysUntil(progress.deadline_sidang) : null
+
+  const timeline = progress.deadline_sidang
+    ? generateTimeline(progress.deadline_sidang, progress.total_bab)
+    : null
 
   const statusEmoji: Record<string, string> = {
     draft: "📝",
@@ -176,10 +202,10 @@ export default function ProgressPage() {
                 <CalendarDays className="size-5 text-purple-600" />
               </div>
               <div>
-                {deadlineInfo ? (
+                {timeline ? (
                   <>
-                    <p className="text-2xl font-bold">{deadlineInfo.days} hari</p>
-                    <p className="text-xs text-muted-foreground">{deadlineInfo.label}</p>
+                    <p className="text-2xl font-bold">{timeline[0].daysLeft} hari</p>
+                    <p className="text-xs text-muted-foreground">Sisa waktu</p>
                   </>
                 ) : (
                   <>
@@ -301,6 +327,65 @@ export default function ProgressPage() {
           })}
         </div>
       </div>
+
+      {/* Timeline */}
+      {timeline && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Clock className="size-5 text-primary" />
+              <h2 className="font-semibold">⏱️ Timeline Skripsi</h2>
+            </div>
+
+            {/* Reminder deadline */}
+            {timeline[timeline.length - 1].daysLeft <= 30 && selesaiCount < progress.total_bab && (
+              <div className="flex items-start gap-2 p-3 mb-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="size-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  Deadline sidang tinggal {timeline[timeline.length - 1].daysLeft} hari lagi!
+                  Target: selesaikan bab berikutnya dalam {Math.ceil(timeline[0].daysLeft / Math.max(1, progress.total_bab - selesaiCount))} hari.
+                </span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {timeline.map((t) => {
+                const bab = babList.find((b) => b.nomor_bab === t.bab)
+                const isCompleted = bab?.status === "selesai"
+                const isLate = !isCompleted && t.daysLeft < 0
+
+                return (
+                  <div key={t.bab} className="flex items-center gap-3">
+                    <div className={cn(
+                      "size-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                      isCompleted
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                        : isLate
+                        ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      {t.bab}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{t.nama}</p>
+                      {bab?.status && (
+                        <p className="text-xs text-muted-foreground">
+                          {statusLabel[bab.status]}
+                          {isLate && " ⚠️ Terlambat"}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs font-medium">{t.targetStart}</p>
+                      <p className="text-xs text-muted-foreground">s.d {t.targetEnd}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Motivasi */}
       <Card className="bg-primary/5 border-primary/10">

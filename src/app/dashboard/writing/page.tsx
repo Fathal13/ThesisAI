@@ -61,6 +61,7 @@ export default function WritingPage() {
   const [review, setReview] = useState<WritingReview | null>(null)
   const [reviewLoading, setReviewLoading] = useState(false)
   const [showReview, setShowReview] = useState<string | null>(null)
+  const [uploadLoading, setUploadLoading] = useState(false)
 
   const [form, setForm] = useState({
     judul: "",
@@ -253,6 +254,50 @@ export default function WritingPage() {
                 value={form.judul}
                 onChange={(e) => setForm({ ...form, judul: e.target.value })}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="file_upload">Upload File (.docx / .txt) — Opsional</Label>
+              <Input
+                id="file_upload"
+                type="file"
+                accept=".docx,.txt"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  setUploadLoading(true)
+                  try {
+                    const formData = new FormData()
+                    formData.append("file", file)
+                    const res = await fetch("/api/writing/upload", {
+                      method: "POST",
+                      body: formData,
+                    })
+                    const data = await res.json()
+                    if (!res.ok) {
+                      setError(data.error ?? "Gagal mengupload file")
+                      return
+                    }
+                    setForm((prev) => ({ ...prev, konten: data.text }))
+                  } catch {
+                    setError("Gagal memproses file. Coba copy-paste manual.")
+                  } finally {
+                    setUploadLoading(false)
+                    // Reset file input
+                    e.target.value = ""
+                  }
+                }}
+                disabled={uploadLoading}
+              />
+              {uploadLoading && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="size-3 animate-spin" />
+                  Memproses file...
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Mendukung .docx (pakai mammoth) dan .txt. Maks 5MB.
+              </p>
             </div>
 
             <div className="space-y-2">

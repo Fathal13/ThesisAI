@@ -460,3 +460,38 @@ ${progress} dari 5 bab skripsinya. Santai tapi tetap akademik.
 
   return text
 }
+
+// ──────────────────────────────────────────
+//  Sidang — Evaluasi jawaban user
+// ──────────────────────────────────────────
+
+export async function evaluateAnswer(
+  question: string,
+  userAnswer: string,
+  sampleAnswer: string,
+): Promise<string[]> {
+  const prompt = `
+Anda adalah dosen penguji skripsi yang sedang mengevaluasi jawaban mahasiswa dalam simulasi sidang.
+
+Pertanyaan: ${question}
+
+Jawaban mahasiswa: ${userAnswer}
+
+Contoh jawaban ideal: ${sampleAnswer}
+
+Berikan 3-5 poin evaluasi dalam Bahasa Indonesia yang mencakup:
+1. Kekuatan dari jawaban mahasiswa (apa yang sudah baik)
+2. Kelemahan atau hal yang kurang
+3. Saran spesifik untuk perbaikan
+
+PENTING: Berikan HANYA array JSON string, tanpa markdown, tanpa pembatas.
+["Poin evaluasi 1...", "Poin evaluasi 2...", ...]
+`
+
+  const { text } = await withFallbackAndRetry((model) =>
+    generateText({ model, prompt }),
+  )
+
+  console.log(`[AI] Raw evaluate response (first 200): ${text.slice(0, 200)}`)
+  return safeJsonParse(text, ["Gagal mengevaluasi jawaban. Coba lagi."])
+}
