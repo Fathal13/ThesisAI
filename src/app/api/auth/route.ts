@@ -1,11 +1,12 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { checkLoginRateLimit, checkSignupRateLimit } from "@/lib/rate-limit"
+import { autoConfirmUser } from "@/lib/supabase-admin"
 
 const CSRF_TOKEN_NAME = "csrf_token"
 
-function getClientIp(request: Request): string {
+function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for")
   if (forwarded) return forwarded.split(",")[0].trim()
   return request.headers.get("x-real-ip") ?? "unknown"
@@ -29,10 +30,20 @@ function validateEmail(email: string): string | null {
 }
 
 function auditLog(action: string, email: string, ip: string, status: "success" | "failure", detail?: string) {
-  console.log(JSON.stringify({ level: "audit", timestamp: new Date().toISOString(), action, email: email.toLowerCase(), ip, status, detail }))
+  console.log(
+    JSON.stringify({
+      level: "audit",
+      timestamp: new Date().toISOString(),
+      action,
+      email: email.toLowerCase(),
+      ip,
+      status,
+      detail,
+    })
+  )
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request)
     const contentType = request.headers.get("content-type") ?? ""
@@ -41,7 +52,9 @@ export async function POST(request: Request) {
     }
 
     let body: Record<string, unknown>
-    try { body = await request.json() } catch {
+    try {
+      body = await request.json()
+    } catch {
       return NextResponse.json({ error: "Body request tidak valid" }, { status: 400 })
     }
 
@@ -53,10 +66,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Action tidak dikenal" }, { status: 400 })
     }
 
-    // CSRF
+    // ───── CSRF ─────
     if (action === "signin" || action === "signup") {
-      const cookieStore = await cookies()
-      const csrfCookie = cookieStore.get(CSRF_TOKEN_NAME)?.value
+      const csrfCookie = request.cookies.get(CSRF_TOKEN_NAME)?.value
       const csrfHeader = request.headers.get("x-csrf-token")
       if (csrfCookie && csrfHeader && csrfCookie !== csrfHeader) {
         console.warn(`[CSRF] Token mismatch from IP ${ip}`)
@@ -64,31 +76,32 @@ export async function POST(request: Request) {
       }
     }
 
-    // ───── Supabase client ─────
+    // ───── Supabase client pakai cookies() dari next/headers ─────
+    // @supabase/ssr v0.12: getAll()/setAll() menangani cookie chunking dengan benar
     const cookieStore = await cookies()
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) { return cookieStore.get(name)?.value },
-          set(name: string, value: string, options: Record<string, unknown>) {
-            cookieStore.set(name, value, { ...options, httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/" })
+          getAll() {
+            return cookieStore.getAll()
           },
-          remove(name: string, options: Record<string, unknown>) {
-            cookieStore.set(name, "", { ...options, maxAge: 0, httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/" })
+          setAll(cookiesToSet) {
+            for (const { name, value, options } of cookiesToSet) {
+              cookieStore.set(name, value, options)
+            }
           },
         },
-      },
+      }
     )
 
-    // Helper untuk response — cookies otomatis terselip dari `cookies().set()` di atas
+    // ───── Helper ─────
     function respond(data: unknown, status = 200) {
-      try {
-        return NextResponse.json(data, { status })
-      } catch {
-        return NextResponse.json(data, { status })
-      }
+      // Setelah cookieStore.set() dipanggil, Next.js secara otomatis
+      // menyertakan cookie tsb ke response headers di Route Handler.
+      return NextResponse.json(data, { status })
     }
 
     // ───── Sign out ─────
@@ -100,8 +113,8 @@ export async function POST(request: Request) {
     // ───── Resend confirmation ─────
     if (action === "resend-confirmation") {
       const normalizedEmail = email.toLowerCase()
-      const emailError = validateEmail(normalizedEmail)
-      if (emailError) return respond({ error: emailError }, 400)
+      const emailErr = validateEmail(normalizedEmail)
+      if (emailErr) return respond({ error: emailErr }, 400)
 
       const { error } = await supabase.auth.resend({ type: "signup", email: normalizedEmail })
       if (error) return respond({ error: "Gagal mengirim ulang email. Coba lagi nanti." }, 500)
@@ -133,12 +146,24 @@ export async function POST(request: Request) {
 
     // ───── Sign in ─────
     if (action === "signin") {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password })
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      })
 
       if (error) {
         auditLog("signin", normalizedEmail, ip, "failure", error.message)
-        if (error.message.includes("Email not confirmed") || error.message.includes("email not confirmed")) {
-          return respond({ error: "Email belum dikonfirmasi. Cek inbox (dan spam) untuk link konfirmasi, atau coba daftar ulang." }, 401)
+        if (
+          error.message.includes("Email not confirmed") ||
+          error.message.includes("email not confirmed")
+        ) {
+          return respond(
+            {
+              error:
+                "Email belum dikonfirmasi. Coba daftar ulang — sistem akan auto-konfirmasi setelah pendaftaran.",
+            },
+            401
+          )
         }
         return respond({ error: "Email atau password salah." }, 401)
       }
@@ -150,26 +175,55 @@ export async function POST(request: Request) {
     // ───── Sign up ─────
     if (action === "signup") {
       const nama = ((body.nama as string) ?? "").trim()
-      if (!nama || nama.length < 2 || nama.length > 100) return respond({ error: "Nama harus diisi (2-100 karakter)." }, 400)
+      if (!nama || nama.length < 2 || nama.length > 100)
+        return respond({ error: "Nama harus diisi (2-100 karakter)." }, 400)
       if (/[<>{}$]/.test(nama)) return respond({ error: "Nama mengandung karakter tidak valid." }, 400)
 
       const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail, password,
+        email: normalizedEmail,
+        password,
         options: { data: { nama } },
       })
 
       if (error) {
         auditLog("signup", normalizedEmail, ip, "failure", error.message)
-        if (error.message.includes("already")) return respond({ error: "Email sudah terdaftar. Silakan login." }, 409)
+        if (error.message.includes("already"))
+          return respond({ error: "Email sudah terdaftar. Silakan login." }, 409)
         return respond({ error: "Gagal mendaftar. Coba lagi nanti." }, 500)
       }
 
       auditLog("signup", normalizedEmail, ip, "success")
-      return respond({
-        user: data.user,
-        message: "📧 Email konfirmasi sudah dikirim! Cek inbox dan folder SPAM.",
-        confirmationSent: true,
-      })
+
+      // Auto-confirm email lewat Supabase Admin API
+      // Workaround untuk masalah email confirmation free tier
+      if (data.user?.id) {
+        const confirmResult = await autoConfirmUser(data.user.id)
+
+        if (confirmResult.success) {
+          // Auto-confirm berhasil — langsung login user supaya dapat session
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          })
+
+          if (!signInError && signInData.session) {
+            return respond({
+              user: signInData.user,
+              session: signInData.session,
+              message: "🎉 Akun berhasil dibuat! Kamu sudah bisa login.",
+              confirmationSent: false,
+            })
+          }
+        }
+
+        // Fallback: auto-confirm gagal atau login gagal — manual confirmation
+        return respond({
+          user: data.user,
+          session: null,
+          message: "📧 Email konfirmasi sudah dikirim! Cek inbox dan folder SPAM.",
+          confirmationSent: true,
+        })
+      }
     }
 
     return respond({ error: "Action tidak dikenal" }, 400)

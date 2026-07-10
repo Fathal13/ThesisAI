@@ -61,11 +61,12 @@ export default async function DashboardPage() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
+          getAll() {
+            return cookieStore.getAll()
           },
-          set() {},
-          remove() {},
+          setAll() {
+            // Read-only
+          },
         },
       }
     )
@@ -73,7 +74,6 @@ export default async function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (user) {
-      // Get profile
       const { data: profile } = await supabase
         .from("profiles")
         .select("nama, jurusan, universitas")
@@ -82,7 +82,6 @@ export default async function DashboardPage() {
 
       if (profile) nama = profile.nama ?? nama
 
-      // Get progress
       const { data: prog } = await supabase
         .from("progress")
         .select("bab_selesai, total_bab, judul_skripsi")

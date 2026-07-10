@@ -15,11 +15,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
+          getAll() {
+            return cookieStore.getAll()
           },
-          set() {},
-          remove() {},
+          setAll() {
+            // Read-only — no cookie writing needed
+          },
         },
       }
     )

@@ -10,11 +10,14 @@ export async function POST() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) { return cookieStore.get(name)?.value },
-          set() {},
-          remove() {},
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll() {
+            // Read-only
+          },
         },
-      },
+      }
     )
 
     const { data: { session } } = await supabase.auth.getSession()

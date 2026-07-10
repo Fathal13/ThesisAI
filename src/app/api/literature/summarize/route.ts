@@ -20,11 +20,14 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) { return cookieStore.get(name)?.value },
-          set() {},
-          remove() {},
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll() {
+            // Read-only — only reading session
+          },
         },
-      },
+      }
     )
 
     // Ambil session user

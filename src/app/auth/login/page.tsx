@@ -98,7 +98,7 @@ function LoginForm() {
         return
       }
 
-      if (action === "signin") {
+      if (action === "signin" || (action === "signup" && data.session)) {
         router.push(searchParams.get("redirect") ?? "/dashboard")
         router.refresh()
       } else if (action === "signup") {
