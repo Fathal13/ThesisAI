@@ -84,22 +84,26 @@ function deduplicateResults(items: LiteratureResult[]): LiteratureResult[] {
 }
 
 /**
- * Cek apakah artikel relevan dengan query user
- * Menggunakan overlap kata kunci antara judul/abstrak dengan query
+ * Cek apakah artikel relevan dengan query user — LENIENT
+ * Biarkan CrossRef yang handle relevansi via scoring.
+ * Fungsi ini hanya filter kasar untuk artikel yang benar-benar tidak relevan.
+ * Penting: jangan terlalu strict agar artikel Bahasa Indonesia tidak ikut terfilter.
  */
 function isRelevant(item: LiteratureResult, queryTerms: string[]): boolean {
   if (queryTerms.length === 0) return true
 
-  const searchText = `${item.title} ${item.abstract ?? ""} ${item.author}`.toLowerCase()
+  const searchText = `${item.title} ${item.abstract ?? ""}`.toLowerCase()
 
-  // Butuh minimal 2 term yang cocok, atau 1 term yang sangat spesifik
+  // Cari minimal 1 term dari query ASLI (bukan AI keywords Inggris) yang cocok
   const matches = queryTerms.filter((term) => {
-    const normalizedTerm = term.toLowerCase().replace(/^["']|["']$/g, "")
-    if (normalizedTerm.length <= 3) return true // kata pendek dianggap irrelevant
+    const normalizedTerm = term.toLowerCase().replace(/^["']|["']$/g, "").trim()
+    if (normalizedTerm.length <= 3) return true
     return searchText.includes(normalizedTerm)
   })
 
-  return matches.length >= Math.min(2, queryTerms.filter((t) => t.length > 3).length)
+  // Sangat lenient: butuh minimal 1 match dari term >3 karakter
+  const meaningfulTermCount = queryTerms.filter((t) => t.replace(/^["']|["']$/g, "").length > 3).length
+  return matches.length >= Math.min(1, meaningfulTermCount)
 }
 
 export async function GET(req: Request) {
@@ -126,22 +130,24 @@ export async function GET(req: Request) {
       console.log(`[Search] AI extraction failed, using original: "${query}"`)
     }
 
-    // Ekstrak term individual untuk filtering
-    const queryTerms = searchQuery
+    // Ekstrak term individual untuk filtering (gabungkan AI keywords + query asli)
+    const originalTerms = query.split(/\s+/).filter((w) => w.length > 4)
+    const aiTerms = searchQuery
       .split(/AND|OR|&&|\|\|/i)
       .map((t) => t.trim())
       .filter(Boolean)
-      .concat(query.split(/\s+/).filter((w) => w.length > 4))
+    const queryTerms = [...new Set([...aiTerms, ...originalTerms])] // unique
 
     // === Langkah 2: Panggil CrossRef ===
     const url = new URL("https://api.crossref.org/works")
-    // Kirim query term yang sudah dioptimasi
+    // Gunakan query umum (bukan query.title spesifik) agar lebih luas & inklusif Indonesia
+    // query = cari di judul, abstrak, author, publisher, dll.
+    url.searchParams.set("query", query)
+    // Tambahkan query.title sebagai boost untuk artikel dengan judul sangat cocok
     url.searchParams.set("query.title", searchQuery)
     url.searchParams.set("rows", String(rows))
     url.searchParams.set("offset", String(page * rows))
     url.searchParams.set("sort", "relevance")
-    // Cari juga di abstrak untuk relevansi
-    url.searchParams.set("query.container-title", searchQuery)
     // Polite pool
     url.searchParams.set("mailto", "thesisai@app")
 

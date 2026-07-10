@@ -26,18 +26,43 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Judul diperlukan" }, { status: 400 })
     }
 
-    const { error } = await supabase.from("literatures").upsert(
-      {
-        user_id: session.user.id,
-        judul: judul.slice(0, 500),
-        penulis: penulis ?? "",
-        tahun: tahun ?? null,
-        doi: doi ?? null,
-        link: link ?? null,
-        abstrak: abstrak ?? null,
-      },
-      { onConflict: "user_id, doi", ignoreDuplicates: true }
-    )
+    // Cek dulu apakah sudah ada (pakai select, bukan upsert — karena tidak ada unique constraint)
+    const { data: existing } = await supabase
+      .from("literatures")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .eq("doi", doi ?? "__no_doi__")
+      .maybeSingle()
+
+    if (existing) {
+      // Sudah tersimpan
+      return NextResponse.json({ success: true, existing: true })
+    }
+
+    // Jika doi null, cek berdasarkan judul
+    if (!doi) {
+      const { data: existingByTitle } = await supabase
+        .from("literatures")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .eq("judul", judul.slice(0, 500))
+        .maybeSingle()
+
+      if (existingByTitle) {
+        return NextResponse.json({ success: true, existing: true })
+      }
+    }
+
+    // Insert baru
+    const { error } = await supabase.from("literatures").insert({
+      user_id: session.user.id,
+      judul: judul.slice(0, 500),
+      penulis: penulis ?? "",
+      tahun: tahun ?? null,
+      doi: doi ?? null,
+      link: link ?? null,
+      abstrak: abstrak ?? null,
+    })
 
     if (error) {
       console.error("[Literature] Save error:", error.message)
