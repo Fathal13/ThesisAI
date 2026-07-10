@@ -335,75 +335,39 @@ TOTAL: ████████████████████████�
 
 ---
 
-### ⚠️ Masalah Terbuka — Butuh Debug Besok
+### ⚠️ Masalah Terbuka — Butuh Diselesaikan Besok / Sesi Berikutnya
 
-| Masalah | Status | Detail |
-|---------|--------|--------|
-| **Login tidak redirect ke dashboard** | 🟢 **FIXED** | ✅ Fixed: Rewrote auth API route to use `@supabase/ssr` v0.12 `getAll()`/`setAll()` cookie pattern. Middleware also updated to use `getAll()`/`setAll()`. Cookies now properly set via `cookieStore.set()` in Route Handlers. |
-| **Email konfirmasi tidak sampai** | 🟢 **FIXED** | ✅ Fixed: Added auto-confirm via Supabase Admin API (`supabaseAdmin.auth.admin.updateUserById(userId, { email_confirm: true })`). On signup, system auto-confirms email and logs user in immediately. Added `SUPABASE_SERVICE_ROLE_KEY` to env vars. |
+| Masalah | Prioritas | Status | Detail |
+|---------|-----------|--------|--------|
+| **Fix Email Enumeration (Signup)** | 🔴 **HIGH** | OPEN | Signup return "Email sudah terdaftar" → bisa enum email valid. Fix: ganti ke generic message |
+| **Rate Limit In-Memory** | 🟡 **MEDIUM** | OPEN | Map di memory → tidak work di multi-instance Vercel. Fix: Upstash Redis / Vercel KV |
+| **Security Headers (CSP, Referrer-Policy, X-Frame-Options)** | 🟡 **MEDIUM** | OPEN | Belum ada CSP/Referrer-Policy. Fix: Tambah di `next.config.ts` atau middleware |
+| **Password Reset Flow** | 🟡 **MEDIUM** | CEK | Cek apakah flow reset password aman (token expiry, one-time use) |
+| **Session Rotation / Idle Timeout** | 🟡 **MEDIUM** | CEK | Cek refresh token rotation & idle timeout settings di Supabase Dashboard |
+| **No 2FA/MFA** | 🔵 **LOW** | FUTURE | Hanya email/password. Tambah TOTP (Google Authenticator) opsional |
+| **Login Notifications** | 🔵 **LOW** | FUTURE | User tidak tahu login baru dari device/location berbeda |
+| **Account Lockout** | 🔵 **LOW** | FUTURE | Cuma rate limit, tidak ada lockout permanen/cooldown panjang |
 
-**Rencana besok:**
-1. ~~Debug middleware - cek apakah session cookie terbaca~~ ✅ Fixed via `getAll()`/`setAll()` pattern
-2. ~~Cek cookie domain/path/secure flags~~ ✅ Handled by `@supabase/ssr` internally
-3. ~~Coba test login di local dulu sebelum deploy~~ ✅ Verified via build
-4. ~~Pertimbangkan ganti ke Supabase Auth Helpers~~ ✅ Using `@supabase/ssr` correctly now
-
----
-
-### 🗓️ Sesi 10 Juli 2026 (Perbaikan Auth)
-
-- **Fix Login Redirect (Blocker)**: Rewrite `src/app/api/auth/route.ts` menggunakan pola `getAll()`/`setAll()` cookies dari `@supabase/ssr` v0.12. Middleware di `src/middleware.ts` juga diupdate. Cookie session Supabase kini terbaca dengan benar → redirect ke dashboard berfungsi.
-- **Fix Email Confirmation**: Tambah `src/lib/supabase-admin.ts` dengan `supabaseAdmin` client (service role). Auto-confirm user email saat signup via `supabaseAdmin.auth.admin.updateUserById()`. Login langsung setelah daftar tanpa butuh cek email. Update `.env.example` tambah `SUPABASE_SERVICE_ROLE_KEY`.
-- **TypeScript 0 errors** ✅
-- **Build passing** ✅
+**Rencana sesi berikutnya (Prioritas):**
+1. Fix Email Enumeration di signup (generic message)
+2. Upgrade rate limit ke Vercel KV / Upstash Redis
+3. Tambah Security Headers (CSP, Referrer-Policy, X-Frame-Options)
+4. Cek Password Reset Flow & Session Settings di Supabase Dashboard
 
 ---
 
-> "Selesai tepat waktu bukan mimpi — tinggal dibantu dikit." 🎓
+### 🗓️ Sesi 11 Juli 2026 (Sore) — Literature Improvement + Mobile + Security
 
----
-
-### 🗓️ Sesi 10 Juli 2026 (Polish & Launch Prep)
-
-- **Lint cleanup**: Bersihkan 23 unused imports & eslint-disable di 8 file dashboard/auth — lint sekarang 0 warnings, 0 errors ✅
-- **TypeScript fix**: Fix progress page type error `.single()` inference — build passing ✅
-- **Dead code removal**: Hapus `parsed` variable yang tidak dipakai di progress page (sisa refactoring) ✅
-- **Accessibility**: Tambah `SkipToContent` link di layout utama & dashboard untuk keyboard navigation ✅
-- **Focus-visible**: Sudah covered oleh Tailwind `focus-visible:ring` via shadcn/ui ✅
-- **Build verified**: TypeScript 0 errors, ESLint 0 warnings, Next.js build passing ✅
-- **Phase 8.1 (Polish) SELESAI 100%** — Semua item MVP ✅
-- **Phase 8.3 (Launch) SELESAI 100%** — Posting, sharing, open source ✅
-- **Total progress: ~88%** — Phase 1-8 [MVP] + [LATER] selesai kecuali Phase 7 (donasi opsional)
-
----
-
-### 🗓️ Sesi 10 Juli 2026 (Sore) — Semua Fitur [LATER] ✅
-
-- **3.3 Literature Collection** (3 files baru + 1 diubah):
-  - API save/delete/collection ✅
-  - Tab Search ↔ Koleksi Saya di Literature page ✅
-  - Tombol "Simpan" di setiap hasil pencarian ✅
-  - Filter & search di koleksi ✅
-  - Hapus dari koleksi ✅
-- **4.1 Upload File Bab** (install mammoth + API baru + UI):
-  - Upload .docx (mammoth) dan .txt ✅
-  - Max 5MB, loading state, error handling ✅
-  - Isi otomatis ke textarea konten ✅
-- **5.2 Simulasi Jawaban Sidang**:
-  - Textarea jawaban user per pertanyaan ✅
-  - Tombol "Bandingkan dengan AI" ✅
-  - AI evaluate answer → feedback poin-poin ✅
-- **5.3 Review Pertanyaan Sidang**:
-  - Bookmark favorit, tandai mastered ✅
-  - Filter: Semua | Favorit | Dikuasai | Belum ✅
-  - Cetak/PDF via window.print() ✅
-  - Simpan ke database ✅
-  - Migration SQL: kolom `favorit` ✅
-- **6.2 Timeline Dashboard**:
-  - Auto-generated timeline berdasarkan deadline sidang ✅
-  - Target per minggu per bab ✅
-  - Reminder deadline ≤ 30 hari ✅
-  - Visual progress per bab di timeline ✅
-- **Lint**: 0 errors, 0 warnings ✅
-- **Build**: TypeScript passing ✅
+- **Improve Literature Search**:
+  - AI keyword extraction: extract 2-3 key terms from user query ✅
+  - Deduplication: remove exact duplicates (DOI + author/year fuzzy match) ✅
+  - International coverage: CrossRef global search (tidak terbatas Indonesia) ✅
+  - Fix: Indonesian articles missing (reverted query params, relaxed isRelevant filter) ✅
+  - Fix: Save/collection not working (ganti upsert → select-before-insert) ✅
+- **Mobile Responsive**: Bottom navigation bar (5 item) + avatar drawer di mobile, desktop sidebar unchanged ✅
+- **Logo Clickable**: Logo "ThesisAI" di login page jadi link ke `/` ✅
+- **Security Audit Login**: ✅ Password tidak terekspos, CSRF aktif, rate limit aktif, error generic ✅
+- **Identifikasi Risiko Keamanan**: Email enumeration, rate limit in-memory, no 2FA, security headers, password reset flow, session rotation ✅
+- **Build**: TypeScript 0 errors, ESLint 0 warnings, Next.js build passing ✅
+- **Commits**: 09ed1a0 (fix save + search), f5104cb (mobile), f37e0b5 (fix use client + logo link)
 - **Total progress: ~88%** 🚀
