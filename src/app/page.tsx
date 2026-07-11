@@ -182,7 +182,15 @@ export default function Home() {
               rel="noopener noreferrer"
               className="hover:text-foreground transition-colors"
             >
-              💝 Donasi
+              💝 Saweria
+            </a>
+            <a
+              href="https://ko-fi.com/thesisai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              ☕ Ko-fi
             </a>
           </div>
           <p>© 2026 ThesisAI</p>

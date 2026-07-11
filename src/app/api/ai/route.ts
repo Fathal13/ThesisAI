@@ -52,10 +52,11 @@ export async function POST(req: Request) {
     console.error("AI API Error:", error)
 
     if (error instanceof AIAllProvidersFailedError) {
+      // error.message mengandung detail provider & API key status — jangan dikirim ke client
+      const total = error.errors.length
       return NextResponse.json(
         {
-          error: error.message,
-          providerErrors: error.errors,
+          error: `Fitur AI sedang sibuk (${total}/${total} provider gagal). Coba lagi nanti.`,
           action: "check-api-keys",
         },
         { status: 503 },

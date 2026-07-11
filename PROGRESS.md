@@ -183,10 +183,10 @@
 > ⚠️ **Cek dulu:** Vercel Hobby plan **melarang penggunaan komersial**. Jika ada donasi/monetisasi, pertimbangkan pindah ke Vercel Pro, Cloudflare Pages, atau host lain agar tidak melanggar ToS.
 
 ### 7.1 — Donasi Sukarela 🔵 [LATER]
-- [ ] Tambah link Saweria / Ko-fi di footer & dashboard
-- [ ] (Opsional) Banner halus: "Dukung kami tetap gratis"
-- [ ] Hitung total donasi yang terkumpul
-- [ ] Pastikan host mengizinkan model donasi (lihat catatan di atas)
+- [x] Tambah link Saweria / Ko-fi di footer & dashboard
+- [x] (Opsional) Banner halus: "Dukung kami tetap gratis" di dashboard Card + landing footer
+- [x] Hitung total donasi yang terkumpul — API `/api/donations/stats`, table `donations`, view `donation_goal`, komponen `DonationGoalCard`
+- [ ] Pastikan host mengizinkan model donasi (lihat catatan di atas) — perlu migrasi jika monetisasi serius
 
 ### 7.2 — Fitur Premium (Masa Depan) 🔵 [LATER]
 - [ ] Jika donasi sudah terkumpul cukup:
@@ -235,10 +235,10 @@ Phase 3: Literatur      ██████████████████�
 Phase 4: Writing        ████████████████████    100%
 Phase 5: Sidang         ██████████████████████   100%
 Phase 6: Dashboard      ██████████████████████   100%
-Phase 7: Donasi         ░░░░░░░░░░░░░░░░░░░░░░   0%
+Phase 7: Donasi         ████████████░░░░░░░░░░   ~60%
 Phase 8: Final + Launch ████████████████████████ 100%
 
-TOTAL: ████████████████████████████████████████   ~88%
+TOTAL: ████████████████████████████████████████   ~91%
 ```
 
 ---
@@ -366,23 +366,23 @@ TOTAL: ████████████████████████�
 
 ---
 
-### 🗓️ Sesi 11 Juli 2026 (Malam) — Security Hardening
+### 🗓️ Sesi 11 Juli 2026 (Malam) — Security Hardening + Phase 7 Donasi
 
-- **Fix Email Enumeration di Signup**:
-  - Ubah error "Email sudah terdaftar" → response sukses palsu agar tidak bisa enum email ✅
-  - Server tetap audit log perbedaan untuk debugging ✅
-- **Security Headers**:
-  - CSP ketat: default-src 'self', frame-ancestors 'none', form-action 'self' ✅
-  - HSTS max-age=31536000 + includeSubDomains ✅
-  - X-Frame-Options: DENY, X-Content-Type-Options: nosniff ✅
-  - Referrer-Policy: strict-origin-when-cross-origin ✅
-  - Permissions-Policy: non-essential APIs dimatikan ✅
-- **Rate Limit Upgrade (In-Memory → Supabase Persistent)**:
-  - Migration SQL: `migration-004.sql` (table `rate_limit`) ✅
-  - All functions jadi async dengan Supabase query ✅
-  - Works across Vercel multi-instance ✅
-- **Fix Next.js 16 compatibility**:
-  - `"use server"` functions harus async (`getSupabaseAdmin`) ✅
-  - Build passing: TypeScript 0 errors, ESLint 0 warnings ✅
-- **Commits**: _(pending)_
-- **Total progress: ~89%** 🚀
+**Security Hardening (sebelum Phase 7):**
+- **Fix Email Enumeration di Signup**: Response sukses palsu agar tidak bisa enum email ✅
+- **Security Headers**: CSP, HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy ✅
+- **Rate Limit Upgrade (In-Memory → Supabase Persistent)**: migration-004.sql ✅
+- **Middleware → Proxy Migration (Next.js 16)**: middleware.ts → proxy.ts ✅
+- **Fix secret leak endpoints**: sidang/questions, progress/recalculate, settings, ai/route — semua error message generic ✅
+- **Remove sensitive console.log**: raw AI response di lib/ai.ts ✅
+
+**Phase 7 — Donasi & Monetisasi:**
+- **Supabase Migration 005**: Table `donations`, views `donation_stats` & `donation_goal` ✅
+- **API `/api/donations/stats`**: Public endpoint untuk donation goal progress ✅
+- **Komponen `DonationGoalCard`**: Reusable card (full + compact mode) ✅
+- **Landing Page Footer**: Saweria + Ko-fi links ✅
+- **Dashboard Card**: Donasi reminder dengan dua tombol donasi ✅
+- **TypeScript types**: donations table + views di Database type ✅
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~91%** 🚀

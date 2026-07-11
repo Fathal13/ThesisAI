@@ -32,7 +32,8 @@ export async function POST() {
       .eq("user_id", session.user.id)
 
     if (babError) {
-      return NextResponse.json({ error: babError.message }, { status: 500 })
+      console.error("Progress recalculate bab error:", babError)
+      return NextResponse.json({ error: "Gagal membaca data bab" }, { status: 500 })
     }
 
     const babSelesai = babList?.filter((b) => b.status === "selesai").length ?? 0
@@ -49,7 +50,8 @@ export async function POST() {
     )
 
     if (upsertError) {
-      return NextResponse.json({ error: upsertError.message }, { status: 500 })
+      console.error("Progress recalculate upsert error:", upsertError)
+      return NextResponse.json({ error: "Gagal menyimpan progress" }, { status: 500 })
     }
 
     return NextResponse.json({ bab_selesai: babSelesai, total_bab: totalBab })

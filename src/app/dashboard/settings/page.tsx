@@ -49,7 +49,7 @@ export default function SettingsPage() {
         jurusan: form.jurusan,
       }, { onConflict: "id" })
 
-      if (error) { setMessage("Gagal: " + error.message); return }
+      if (error) { setMessage("Gagal menyimpan profil. Coba lagi."); return }
       setMessage("Profil berhasil disimpan! ✅")
     } catch {
       setMessage("Terjadi kesalahan")

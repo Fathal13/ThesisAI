@@ -28,12 +28,13 @@ export async function GET() {
       .order("created_at", { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error("Get sidang questions error:", error)
+      return NextResponse.json({ error: "Gagal mengambil pertanyaan" }, { status: 500 })
     }
 
     return NextResponse.json(data ?? [])
   } catch (error) {
-    console.error("Get sidang questions error:", error)
+    console.error("Get sidang questions catch:", error)
     return NextResponse.json({ error: "Gagal mengambil pertanyaan" }, { status: 500 })
   }
 }
@@ -79,12 +80,13 @@ export async function PUT(req: Request) {
       .eq("user_id", session.user.id)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error("Update sidang question error:", error)
+      return NextResponse.json({ error: "Gagal mengupdate pertanyaan" }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Update sidang question error:", error)
+    console.error("Update sidang question catch:", error)
     return NextResponse.json({ error: "Gagal mengupdate pertanyaan" }, { status: 500 })
   }
 }
@@ -120,12 +122,13 @@ export async function DELETE(req: Request) {
       .eq("user_id", session.user.id)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error("Delete sidang question error:", error)
+      return NextResponse.json({ error: "Gagal menghapus pertanyaan" }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Delete sidang question error:", error)
+    console.error("Delete sidang question catch:", error)
     return NextResponse.json({ error: "Gagal menghapus pertanyaan" }, { status: 500 })
   }
 }

@@ -340,7 +340,6 @@ PENTING: Berikan HANYA JSON, tanpa markdown, tanpa penjelasan, tanpa pembatas. O
     generateText({ model, prompt }),
   )
 
-  console.log(`[AI] Raw summarize response (first 200): ${text.slice(0, 200)}`)
   return safeJsonParse(text, {
     problem: "Gagal merangkum",
     method: "Gagal merangkum",
