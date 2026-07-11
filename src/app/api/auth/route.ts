@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     const email = ((body.email as string) ?? "").trim()
     const password = (body.password as string) ?? ""
 
-    if (!action || !["signin", "signup", "signout", "resend-confirmation"].includes(action)) {
+    if (!action || !["signin", "signup", "signout", "resend-confirmation", "forgot-password", "reset-password"].includes(action)) {
       return NextResponse.json({ error: "Action tidak dikenal" }, { status: 400 })
     }
 
@@ -120,6 +120,45 @@ export async function POST(request: NextRequest) {
       if (error) return respond({ error: "Gagal mengirim ulang email. Coba lagi nanti." }, 500)
 
       return respond({ message: "✅ Email konfirmasi sudah dikirim ulang!" })
+    }
+
+    // ───── Forgot password / Reset password ─────
+    if (action === "forgot-password") {
+      const emailErr = validateEmail(email)
+      if (emailErr) return respond({ error: emailErr }, 400)
+
+      const normalizedEmail = email.toLowerCase()
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${request.nextUrl.origin}/auth/login?reset=true`,
+      })
+
+      // Always return success (prevent email enumeration)
+      if (error) {
+        auditLog("forgot-password", normalizedEmail, ip, "failure", error.message)
+        console.error("[Auth] Forgot password error:", error.message)
+      } else {
+        auditLog("forgot-password", normalizedEmail, ip, "success")
+      }
+
+      return respond({
+        message: "📧 Kalau email terdaftar, link reset password sudah dikirim! Cek inbox & folder SPAM.",
+      })
+    }
+
+    if (action === "reset-password") {
+      const passwordError = validatePassword(password)
+      if (passwordError) return respond({ error: passwordError }, 400)
+
+      const { error } = await supabase.auth.updateUser({ password })
+
+      if (error) {
+        auditLog("reset-password", "user", ip, "failure", error.message)
+        console.error("[Auth] Reset password error:", error.message)
+        return respond({ error: "Gagal reset password. Coba lagi nanti." }, 500)
+      }
+
+      auditLog("reset-password", "user", ip, "success")
+      return respond({ message: "✅ Password berhasil diubah! Silakan login." })
     }
 
     // ───── Email & password validation ─────

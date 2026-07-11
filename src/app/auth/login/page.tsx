@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { BookOpen, Loader2, Mail, AlertCircle, CheckCircle } from "lucide-react"
@@ -27,7 +27,18 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [message, setMessage] = useState("")
+  const [message, setMessage] = useState(
+    searchParams.get("message") ?? (searchParams.get("reset") === "success" ? "✅ Password berhasil diperbarui! Silakan login." : "")
+  )
+
+  // Jika ada parameter reset=true dari email reset password, redirect ke halaman reset
+  // (Supabase menambahkan access_token & refresh_token di URL hash setelah user klik link)
+  useEffect(() => {
+    if (searchParams.get("reset") === "true") {
+      // Forward ke halaman reset dengan seluruh query string (token di hash menempel di URL)
+      window.location.href = "/auth/reset-password?" + searchParams.toString()
+    }
+  }, [searchParams])
 
   // Client-side validation helpers
   function validateEmail(email: string): string | null {
@@ -206,6 +217,11 @@ function LoginForm() {
                     {loading ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
                     Masuk
                   </Button>
+                  <div className="text-center">
+                    <Link href="/auth/forgot-password" className="text-sm text-primary hover:underline">
+                      Lupa password?
+                    </Link>
+                  </div>
                 </form>
               </TabsContent>
 

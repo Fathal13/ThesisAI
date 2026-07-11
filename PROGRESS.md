@@ -339,9 +339,7 @@ TOTAL: ████████████████████████�
 
 | Masalah | Prioritas | Status | Detail |
 |---------|-----------|--------|--------|
-| **Password Reset Flow** | 🟡 **MEDIUM** | OPEN | Cek apakah flow reset password aman (token expiry, one-time use) |
 | **Session Rotation / Idle Timeout** | 🟡 **MEDIUM** | OPEN | Cek refresh token rotation & idle timeout settings di Supabase Dashboard |
-| **Middleware → Proxy (Next.js 16 deprecation)** | 🟡 **MEDIUM** | OPEN | Next.js 16 deprecate `middleware.ts`, ganti ke `proxy.ts` |
 | **No 2FA/MFA** | 🔵 **LOW** | FUTURE | Hanya email/password. Tambah TOTP (Google Authenticator) opsional |
 | **Login Notifications** | 🔵 **LOW** | FUTURE | User tidak tahu login baru dari device/location berbeda |
 | **Account Lockout** | 🔵 **LOW** | FUTURE | Cuma rate limit, tidak ada lockout permanen/cooldown panjang |
@@ -386,3 +384,27 @@ TOTAL: ████████████████████████�
 
 **Build & Lint**: 0 errors, 0 warnings ✅
 **Total progress: ~91%** 🚀
+
+---
+
+### 🗓️ Sesi 11 Juli 2026 (Lanjut Malam) — Password Reset Flow
+
+- **Halaman Lupa Password** (`/auth/forgot-password`):
+  - Form input email + validasi ✅
+  - API `forgot-password` via `supabase.auth.resetPasswordForEmail()` ✅
+  - Generic response (cegah email enumeration) ✅
+  - Success screen dengan info link berlaku 1 jam ✅
+- **Halaman Reset Password** (`/auth/reset-password`):
+  - Ekstrak token dari URL hash (Supabase recovery flow) ✅
+  - Simpan token ke sessionStorage lalu bersihkan URL ✅
+  - Form password baru + konfirmasi + toggle show/hide ✅
+  - Validasi password (sama dengan signup) ✅
+  - `supabase.auth.updateUser({ password })` via client-side ✅
+  - Redirect ke login dengan pesan sukses ✅
+- **Integrasi Login Page**:
+  - Link "Lupa password?" di bawah form login ✅
+  - Redirect otomatis `?reset=true` → halaman reset-password ✅
+  - Tampilkan pesan sukses setelah reset ✅
+- **Security**: Generic message untuk forgot-password (cegah email enum), token one-time via Supabase, redirect URL terverifikasi ✅
+- **Build & Lint**: 0 errors, 0 warnings ✅
+- **Total progress: ~92%** 🚀
