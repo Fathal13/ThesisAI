@@ -335,24 +335,16 @@ TOTAL: ████████████████████████�
 
 ---
 
-### ⚠️ Masalah Terbuka — Butuh Diselesaikan Besok / Sesi Berikutnya
+### ⚠️ Masalah Terbuka — Sisa Sesi Sebelumnya
 
 | Masalah | Prioritas | Status | Detail |
 |---------|-----------|--------|--------|
-| **Fix Email Enumeration (Signup)** | 🔴 **HIGH** | OPEN | Signup return "Email sudah terdaftar" → bisa enum email valid. Fix: ganti ke generic message |
-| **Rate Limit In-Memory** | 🟡 **MEDIUM** | OPEN | Map di memory → tidak work di multi-instance Vercel. Fix: Upstash Redis / Vercel KV |
-| **Security Headers (CSP, Referrer-Policy, X-Frame-Options)** | 🟡 **MEDIUM** | OPEN | Belum ada CSP/Referrer-Policy. Fix: Tambah di `next.config.ts` atau middleware |
-| **Password Reset Flow** | 🟡 **MEDIUM** | CEK | Cek apakah flow reset password aman (token expiry, one-time use) |
-| **Session Rotation / Idle Timeout** | 🟡 **MEDIUM** | CEK | Cek refresh token rotation & idle timeout settings di Supabase Dashboard |
+| **Password Reset Flow** | 🟡 **MEDIUM** | OPEN | Cek apakah flow reset password aman (token expiry, one-time use) |
+| **Session Rotation / Idle Timeout** | 🟡 **MEDIUM** | OPEN | Cek refresh token rotation & idle timeout settings di Supabase Dashboard |
+| **Middleware → Proxy (Next.js 16 deprecation)** | 🟡 **MEDIUM** | OPEN | Next.js 16 deprecate `middleware.ts`, ganti ke `proxy.ts` |
 | **No 2FA/MFA** | 🔵 **LOW** | FUTURE | Hanya email/password. Tambah TOTP (Google Authenticator) opsional |
 | **Login Notifications** | 🔵 **LOW** | FUTURE | User tidak tahu login baru dari device/location berbeda |
 | **Account Lockout** | 🔵 **LOW** | FUTURE | Cuma rate limit, tidak ada lockout permanen/cooldown panjang |
-
-**Rencana sesi berikutnya (Prioritas):**
-1. Fix Email Enumeration di signup (generic message)
-2. Upgrade rate limit ke Vercel KV / Upstash Redis
-3. Tambah Security Headers (CSP, Referrer-Policy, X-Frame-Options)
-4. Cek Password Reset Flow & Session Settings di Supabase Dashboard
 
 ---
 
@@ -371,3 +363,26 @@ TOTAL: ████████████████████████�
 - **Build**: TypeScript 0 errors, ESLint 0 warnings, Next.js build passing ✅
 - **Commits**: 09ed1a0 (fix save + search), f5104cb (mobile), f37e0b5 (fix use client + logo link)
 - **Total progress: ~88%** 🚀
+
+---
+
+### 🗓️ Sesi 11 Juli 2026 (Malam) — Security Hardening
+
+- **Fix Email Enumeration di Signup**:
+  - Ubah error "Email sudah terdaftar" → response sukses palsu agar tidak bisa enum email ✅
+  - Server tetap audit log perbedaan untuk debugging ✅
+- **Security Headers**:
+  - CSP ketat: default-src 'self', frame-ancestors 'none', form-action 'self' ✅
+  - HSTS max-age=31536000 + includeSubDomains ✅
+  - X-Frame-Options: DENY, X-Content-Type-Options: nosniff ✅
+  - Referrer-Policy: strict-origin-when-cross-origin ✅
+  - Permissions-Policy: non-essential APIs dimatikan ✅
+- **Rate Limit Upgrade (In-Memory → Supabase Persistent)**:
+  - Migration SQL: `migration-004.sql` (table `rate_limit`) ✅
+  - All functions jadi async dengan Supabase query ✅
+  - Works across Vercel multi-instance ✅
+- **Fix Next.js 16 compatibility**:
+  - `"use server"` functions harus async (`getSupabaseAdmin`) ✅
+  - Build passing: TypeScript 0 errors, ESLint 0 warnings ✅
+- **Commits**: _(pending)_
+- **Total progress: ~89%** 🚀

@@ -10,7 +10,7 @@ import type { Database } from "@/types"
  * WAJIB: environment variable SUPABASE_SERVICE_ROLE_KEY
  * (service_role key dari Supabase Dashboard → Settings → API)
  */
-function getSupabaseAdmin() {
+export async function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
 
@@ -32,7 +32,7 @@ function getSupabaseAdmin() {
  */
 export async function autoConfirmUser(userId: string) {
   try {
-    const supabaseAdmin = getSupabaseAdmin()
+    const supabaseAdmin = await getSupabaseAdmin()
     const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
       email_confirm: true,
     })

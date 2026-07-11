@@ -136,11 +136,11 @@ export async function POST(request: NextRequest) {
 
     // ───── Rate limit ─────
     if (action === "signin") {
-      const limitCheck = checkLoginRateLimit(ip, email)
+      const limitCheck = await checkLoginRateLimit(ip, email)
       if (!limitCheck.allowed) return respond({ error: limitCheck.reason, retryAfter: limitCheck.retryAfter }, 429)
     }
     if (action === "signup") {
-      const limitCheck = checkSignupRateLimit(ip)
+      const limitCheck = await checkSignupRateLimit(ip)
       if (!limitCheck.allowed) return respond({ error: limitCheck.reason }, 429)
     }
 
@@ -187,8 +187,16 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         auditLog("signup", normalizedEmail, ip, "failure", error.message)
-        if (error.message.includes("already"))
-          return respond({ error: "Email sudah terdaftar. Silakan login." }, 409)
+        // Gunakan pesan generik untuk mencegah email enumeration
+        // Selalu return success-like response agar penyerang tidak bisa enum email
+        if (error.message.includes("already")) {
+          return respond({
+            user: null,
+            session: null,
+            message: "✅ Pendaftaran berhasil! Cek email kamu untuk konfirmasi.",
+            confirmationSent: true,
+          })
+        }
         return respond({ error: "Gagal mendaftar. Coba lagi nanti." }, 500)
       }
 

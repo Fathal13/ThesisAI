@@ -114,6 +114,26 @@ export type Database = {
         Insert: Omit<Progress, "id" | "updated_at">
         Update: Partial<Omit<Progress, "id">>
       }
+      rate_limit: {
+        Row: {
+          key: string
+          count: number
+          reset_at: string
+          created_at: string
+        }
+        Insert: {
+          key: string
+          count: number
+          reset_at: string
+          created_at?: string
+        }
+        Update: {
+          key?: string
+          count?: number
+          reset_at?: string
+          created_at?: string
+        }
+      }
     }
   }
 }
