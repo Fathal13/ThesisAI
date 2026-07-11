@@ -340,6 +340,9 @@ TOTAL: ████████████████████████�
 | Masalah | Prioritas | Status | Detail |
 |---------|-----------|--------|--------|
 | **Session Rotation / Idle Timeout** | 🟡 **MEDIUM** | OPEN | Cek refresh token rotation & idle timeout settings di Supabase Dashboard |
+| **User langsung masuk dashboard sebelum konfirmasi email** | 🔴 **HIGH** | OPEN | Supabase auto-confirm workaround bikin user langsung login tanpa konfirmasi email. Perlu ganti flow: kirim email konfirmasi standar, block akses dashboard sampai email confirmed |
+| **Link konfirmasi email Supabase arahkan ke localhost** | 🟡 **MEDIUM** | OPEN | Di Supabase Dashboard → Auth → URL Configuration, set Site URL ke production (thesisai.vercel.app), tambah Redirect URLs untuk localhost dev |
+| **Tambah jurnal ilmiah di pencarian literatur** | 🟡 **MEDIUM** | OPEN | CrossRef `type` filter: tambah `journal-article`, `journal`, `proceedings-article`, `book-chapter` dsb. Saat ini hanya `article` generic |
 | **No 2FA/MFA** | 🔵 **LOW** | FUTURE | Hanya email/password. Tambah TOTP (Google Authenticator) opsional |
 | **Login Notifications** | 🔵 **LOW** | FUTURE | User tidak tahu login baru dari device/location berbeda |
 | **Account Lockout** | 🔵 **LOW** | FUTURE | Cuma rate limit, tidak ada lockout permanen/cooldown panjang |
@@ -408,3 +411,44 @@ TOTAL: ████████████████████████�
 - **Security**: Generic message untuk forgot-password (cegah email enum), token one-time via Supabase, redirect URL terverifikasi ✅
 - **Build & Lint**: 0 errors, 0 warnings ✅
 - **Total progress: ~92%** 🚀
+
+---
+
+### 🔴 Issue Baru untuk Diselesaikan Besok
+
+#### (1) User Langsung Masuk Dashboard Sebelum Konfirmasi Email
+**Masalah:**
+- Signup → auto-confirm via `supabase.auth.admin.updateUserById()` + langsung login
+- Ini melewati email confirmation yang seharusnya mencegah akun spam / fake email
+- User dengan email typo/ngawur tetap bisa akses dashboard
+
+**Solusi plan:**
+- Nonaktifkan auto-confirm di `supabase-admin.ts`
+- Kirim email konfirmasi standar Supabase
+- Di middleware/proxy: cek `email_confirmed_at` user, redirect ke halaman "verifikasi email" jika belum confirmed
+- Beri opsi kirim ulang email konfirmasi di halaman tersebut
+
+#### (2) Link Konfirmasi Email Supabase Mengarah ke localhost
+**Masalah:**
+- Site URL di Supabase Dashboard masih `http://localhost:3000` (default)
+- Email konfirmasi yang dikirim link-nya ke localhost, bukan ke thesisai.vercel.app
+
+**Solusi (manual di Supabase Dashboard):**
+1. Buka supabase.com → Project → Authentication → URL Configuration
+2. Set **Site URL** → `https://thesisai.vercel.app`
+3. Tambah **Redirect URLs**:
+   - `http://localhost:3000/**` (untuk dev)
+   - `https://thesisai.vercel.app/**` (untuk production)
+4. Save
+
+#### (3) Tambah Jurnal Ilmiah di Pencarian Literatur
+**Masalah:**
+- Saat ini result dari CrossRef tidak difilter berdasarkan type
+- Banyak hasil `book`, `report`, `dataset`, `reference-entry` yang bukan artikel jurnal ilmiah
+- Mahasiswa butuh jurnal sebagai referensi skripsi
+
+**Solusi rencana:**
+- Tambah `filter=type:journal-article` di query CrossRef
+- Atau tambah filter `item.type` untuk hanya tampilkan: `journal-article`, `proceedings-article`, `book-chapter`, `book`, `monograph`
+- Tampilkan badge/icon jenis publikasi (📄 Jurnal, 📘 Buku, 🎤 Prosiding, dll)
+- (Opsional) Tambah checkbox filter "Jurnal saja" di UI
