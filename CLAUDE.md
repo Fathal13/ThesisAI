@@ -57,11 +57,11 @@
 ### 1. Zero-Budget Enforcement
 - SEMUA teknologi harus pakai free tier (Vercel, Supabase, Gemini API)
 - JANGAN pernah suggest layanan berbayar kecuali user minta eksplisit
-- Jika butuh fitur premium → tambah ke Phase 7+ (donasi-based)
+- Semua fitur tetap gratis selamanya
 
 ### 2. AI Usage (Gemini Only untuk MVP)
 - Hanya pakai Google Gemini (gratis via `@ai-sdk/google`)
-- TIDAK pakai Claude API kecuali: user minta, ATAU donasi sudah cukup untuk cover cost
+- TIDAK pakai Claude API kecuali user minta eksplisit dan ada pendanaan yang jelas
 - Prompt engineering di `lib/ai.ts` — centralized, reusable
 - Cache response kalau bisa (rate limit 60 RPM)
 

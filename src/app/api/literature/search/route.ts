@@ -43,8 +43,8 @@ const CACHE_TTL = 10 * 60 * 1000 // 10 menit
 const CACHE_CLEANUP_INTERVAL = 5 * 60 * 1000
 
 // Periodic cache cleanup — sekali aja via globalThis
-if (typeof globalThis !== "undefined" && !(globalThis as any).__searchCacheCleanup) {
-  ;(globalThis as any).__searchCacheCleanup = true
+if (typeof globalThis !== "undefined" && !(globalThis as Record<string, unknown>).__searchCacheCleanup) {
+  ;(globalThis as Record<string, unknown>).__searchCacheCleanup = true
   setInterval(() => {
     const now = Date.now()
     for (const [key, entry] of SEARCH_CACHE) {

@@ -58,7 +58,6 @@ function getTypeDisplay(type: string): { icon: string; label: string } {
 export default function LiteraturePage() {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<LiteratureResult[]>([])
-  const [total, setTotal] = useState(0) // hasil ditampilkan di halaman ini
   const [totalFiltered, setTotalFiltered] = useState(0) // hasil setelah filter & dedup
   const [totalItems, setTotalItems] = useState(0) // total tersedia di CrossRef
   const [page, setPage] = useState(0)
@@ -96,7 +95,6 @@ export default function LiteraturePage() {
       }
 
       setResults(data.results)
-      setTotal(data.total ?? data.results.length)
       setTotalFiltered(data.totalFiltered ?? 0)
       setTotalItems(data.totalItems ?? 0)
       setPage(data.page)
@@ -121,9 +119,26 @@ export default function LiteraturePage() {
   }
 
   useEffect(() => {
-    // Fetch collection count on mount (for badge count), dan saat tab berubah
-    fetchCollection()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false
+
+    async function loadCollection() {
+      setCollectionLoading(true)
+      try {
+        const res = await fetch("/api/literature/collection")
+        const data = await res.json()
+        if (!cancelled && Array.isArray(data)) setCollection(data)
+      } catch {
+        // silent
+      } finally {
+        if (!cancelled) setCollectionLoading(false)
+      }
+    }
+
+    loadCollection()
+
+    return () => {
+      cancelled = true
+    }
   }, [activeTab])
 
   async function handleSaveToCollection(item: LiteratureResult) {

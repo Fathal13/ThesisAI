@@ -89,16 +89,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-8 mb-3">6. Donasi & Monetisasi</h2>
-            <p>
-              ThesisAI saat ini gratis. Donasi sukarela via Saweria/Ko-fi diterima untuk biaya operasional.
-              Donasi <strong>tidak</strong> memberikan hak istimewa atau akses eksklusif.
-              Jika donasi mencukupi, kami berencana menambah fitur premium opsional — fitur dasar tetap gratis.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-semibold mt-8 mb-3">7. Perubahan Syarat</h2>
+            <h2 className="text-xl font-semibold mt-8 mb-3">6. Perubahan Syarat</h2>
             <p>
               Kami dapat mengubah syarat dan ketentuan ini sewaktu-waktu.
               Perubahan akan diumumkan melalui aplikasi. Dengan terus menggunakan ThesisAI setelah perubahan,

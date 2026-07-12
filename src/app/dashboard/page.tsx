@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import Link from "next/link"
-import { BookOpen, Edit3, Brain, BarChart3, ArrowRight, GraduationCap, Heart } from "lucide-react"
+import { BookOpen, Edit3, Brain, BarChart3, ArrowRight, GraduationCap } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
@@ -184,35 +184,6 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Donasi reminder */}
-      <Card>
-        <CardContent className="pt-6 text-center">
-          <div className="flex flex-col items-center gap-3">
-            <Heart className="size-6 text-pink-500" />
-            <p className="text-sm text-muted-foreground max-w-md">
-              ThesisAI 100% gratis selamanya untuk mahasiswa. Donasi sukarela membantu biaya server &amp; API AI.
-            </p>
-            <div className="flex items-center gap-3">
-              <a
-                href="https://saweria.co/fathal"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
-              >
-                💝 Saweria
-              </a>
-              <a
-                href="https://ko-fi.com/fathal"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
-              >
-                ☕ Ko-fi
-              </a>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

@@ -24,7 +24,6 @@ export default function VerifyEmailPage() {
 function VerifyEmailForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [resendLoading, setResendLoading] = useState(false)

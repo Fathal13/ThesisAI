@@ -79,7 +79,7 @@
 - [x] Fitur highlights (Literatur, Writing, Sidang, Progress)
 - [x] CTA: "Mulai Gratis" → redirect ke login
 - [x] Disclaimer singkat "asisten, bukan joki" di landing
-- [x] Footer + link donasi
+- [x] Footer (Privasi, Syarat & Ketentuan)
 
 ### 2.2 — App Layout 🟢 [MVP]
 - [x] Dashboard layout (sidebar navigasi)
@@ -178,25 +178,6 @@
 
 ---
 
-## 🎯 Tahap 7: Donasi & Monetisasi (Opsional 💝)
-
-> ⚠️ **Cek dulu:** Vercel Hobby plan **melarang penggunaan komersial**. Jika ada donasi/monetisasi, pertimbangkan pindah ke Vercel Pro, Cloudflare Pages, atau host lain agar tidak melanggar ToS.
-
-### 7.1 — Donasi Sukarela 🔵 [LATER]
-- [x] Tambah link Saweria / Ko-fi di footer & dashboard
-- [x] (Opsional) Banner halus: "Dukung kami tetap gratis" di dashboard Card + landing footer
-- [x] Hitung total donasi yang terkumpul — API `/api/donations/stats`, table `donations`, view `donation_goal`, komponen `DonationGoalCard`
-- [ ] Pastikan host mengizinkan model donasi (lihat catatan di atas) — perlu migrasi jika monetisasi serius
-
-### 7.2 — Fitur Premium (Masa Depan) 🔵 [LATER]
-- [ ] Jika donasi sudah terkumpul cukup:
-  - [ ] Upgrade AI ke Claude untuk review lebih dalam
-  - [ ] Export BibTeX & PDF
-  - [ ] Priority queue (lebih cepat)
-- [ ] Sistem unlock fitur per user
-
----
-
 ## 🎯 Tahap 8: Final & Launch 🚀
 
 ### 8.1 — Polish 🟢 [MVP]
@@ -235,10 +216,10 @@ Phase 3: Literatur      ██████████████████�
 Phase 4: Writing        ████████████████████    100%
 Phase 5: Sidang         ██████████████████████   100%
 Phase 6: Dashboard      ██████████████████████   100%
-Phase 7: Donasi         ████████████░░░░░░░░░░   ~60%
+Phase 7: (Removed)      —                      —
 Phase 8: Final + Launch ████████████████████████ 100%
 
-TOTAL: ████████████████████████████████████████   ~97%
+TOTAL: ████████████████████████████████████████   100%
 ```
 
 ---
@@ -260,7 +241,7 @@ TOTAL: ████████████████████████�
 | --- | --- | --- |
 | Kuota Gemini free habis | Fitur AI mati | Caching, rate-limit per user, **auto-fallback ke NVIDIA/OpenRouter/Groq**, pesan error jelas |
 | Isu integritas akademik | Reputasi/legal | Positioning "asisten", disclaimer, batasi generate |
-| Vercel Hobby non-komersial | ToS terlanggar saat donasi | Pindah host / plan sebelum monetisasi |
+| Vercel Hobby non-komersial | ToS terlanggar jika ada monetisasi | Fitur donasi sudah dihapus — aman |
 | Data pribadi bocor | Legal (UU PDP) | RLS Supabase, server-side keys, privacy policy |
 | Batas free tier Supabase | App down saat traffic naik | Pantau usage, optimasi query, rencana upgrade |
 
@@ -269,9 +250,8 @@ TOTAL: ████████████████████████�
 ## 📝 Catatan
 
 - **AI utama: Gemini (GRATIS).** Fallback: NVIDIA NIM, OpenRouter, Groq — semuanya gratis tier.
-- **Claude & model berbayar lain** hanya akan ditambahkan jika donasi sudah cukup.
+- **Claude & model berbayar lain** hanya akan ditambahkan jika nanti ada pendanaan.
 - **Semua fitur gratis.** Tidak ada paksa bayar.
-- **Donasi 100% sukarela** — via Saweria/Ko-fi, tanpa backend.
 - **MVP pertama fokus fungsional dulu**, polish belakangan. Kerjakan dulu semua yang bertanda 🟢 [MVP].
 - **Keamanan bukan opsional:** RLS + server-side API key + env vars sejak awal.
 
@@ -367,23 +347,15 @@ TOTAL: ████████████████████████�
 
 ---
 
-### 🗓️ Sesi 11 Juli 2026 (Malam) — Security Hardening + Phase 7 Donasi
+### 🗓️ Sesi 11 Juli 2026 (Malam) — Security Hardening
 
-**Security Hardening (sebelum Phase 7):**
+**Security Hardening:**
 - **Fix Email Enumeration di Signup**: Response sukses palsu agar tidak bisa enum email ✅
 - **Security Headers**: CSP, HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy ✅
 - **Rate Limit Upgrade (In-Memory → Supabase Persistent)**: migration-004.sql ✅
 - **Middleware → Proxy Migration (Next.js 16)**: middleware.ts → proxy.ts ✅
 - **Fix secret leak endpoints**: sidang/questions, progress/recalculate, settings, ai/route — semua error message generic ✅
 - **Remove sensitive console.log**: raw AI response di lib/ai.ts ✅
-
-**Phase 7 — Donasi & Monetisasi:**
-- **Supabase Migration 005**: Table `donations`, views `donation_stats` & `donation_goal` ✅
-- **API `/api/donations/stats`**: Public endpoint untuk donation goal progress ✅
-- **Komponen `DonationGoalCard`**: Reusable card (full + compact mode) ✅
-- **Landing Page Footer**: Saweria + Ko-fi links ✅
-- **Dashboard Card**: Donasi reminder dengan dua tombol donasi ✅
-- **TypeScript types**: donations table + views di Database type ✅
 
 **Build & Lint**: 0 errors, 0 warnings ✅
 **Total progress: ~91%** 🚀
@@ -461,8 +433,8 @@ TOTAL: ████████████████████████�
 - `fetchCollection()` jalan di `useEffect` mount, bukan cuma tab click
 - Badge "Koleksi Saya (N)" langsung benar saat refresh halaman
 
-**✅ Fix: Migration Donasi Duplicate Policy**
-- `supabase/migration-005.sql`: tambah `DROP POLICY IF EXISTS` sebelum `CREATE POLICY`
+**✅ Fix: Migration Rate Limit Duplicate Policy**
+- `supabase/migration-004.sql`: tambah `DROP POLICY IF EXISTS` sebelum `CREATE POLICY`
 - Migration bisa di-run berulang tanpa error "policy already exists"
 
 **✅ Feature: Sort Hasil Pencarian by Tahun (Terbaru Dulu)**

@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
         return respond({ error: "Nama harus diisi (2-100 karakter)." }, 400)
       if (/[<>{}$]/.test(nama)) return respond({ error: "Nama mengandung karakter tidak valid." }, 400)
 
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
         options: { data: { nama } },

@@ -134,60 +134,7 @@ export type Database = {
           created_at?: string
         }
       }
-      donations: {
-        Row: {
-          id: string
-          user_id: string | null
-          platform: "saweria" | "kofi" | "trakteer" | "manual"
-          amount: number
-          currency: string
-          donor_name: string | null
-          donor_message: string | null
-          transaction_id: string | null
-          status: "pending" | "completed" | "failed" | "refunded"
-          created_at: string
-        }
-        Insert: {
-          user_id?: string | null
-          platform: "saweria" | "kofi" | "trakteer" | "manual"
-          amount: number
-          currency?: string
-          donor_name?: string | null
-          donor_message?: string | null
-          transaction_id?: string | null
-          status?: "pending" | "completed" | "failed" | "refunded"
-        }
-        Update: {
-          user_id?: string | null
-          platform?: "saweria" | "kofi" | "trakteer" | "manual"
-          amount?: number
-          currency?: string
-          donor_name?: string | null
-          donor_message?: string | null
-          transaction_id?: string | null
-          status?: "pending" | "completed" | "failed" | "refunded"
-        }
-      }
     }
-    Views: {
-      donation_stats: {
-        Row: {
-          total_amount_idr: number
-          total_count: number
-          saweria_amount: number
-          kofi_amount: number
-          trakteer_amount: number
-          last_donation_at: string | null
-        }
-      }
-      donation_goal: {
-        Row: {
-          target_amount_idr: number
-          current_amount_idr: number
-          progress_percent: number
-          remaining_amount_idr: number
-        }
-      }
-    }
+    Views: Record<string, unknown>
   }
 }

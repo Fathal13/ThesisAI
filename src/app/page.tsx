@@ -176,22 +176,6 @@ export default function Home() {
             <Link href="/syarat-ketentuan" className="hover:text-foreground transition-colors underline underline-offset-2">
               Syarat & Ketentuan
             </Link>
-            <a
-              href="https://saweria.co/thesisai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-foreground transition-colors"
-            >
-              💝 Saweria
-            </a>
-            <a
-              href="https://ko-fi.com/thesisai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-foreground transition-colors"
-            >
-              ☕ Ko-fi
-            </a>
           </div>
           <p>© 2026 ThesisAI</p>
         </div>
