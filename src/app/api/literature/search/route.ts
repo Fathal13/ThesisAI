@@ -181,6 +181,15 @@ export async function GET(req: Request) {
 
       results = deduplicateResults(results)
 
+      // Urutkan berdasarkan tahun terbit: terbaru di atas
+      // Artikel tanpa tahun ditaruh di paling bawah
+      results.sort((a, b) => {
+        if (!a.year && !b.year) return 0
+        if (!a.year) return 1
+        if (!b.year) return -1
+        return b.year - a.year
+      })
+
       SEARCH_CACHE.set(cacheKey, { results, totalItems, searchQuery, _ts: Date.now() })
       cached = SEARCH_CACHE.get(cacheKey)!
     }
