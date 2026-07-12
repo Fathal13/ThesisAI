@@ -84,27 +84,12 @@ function deduplicateResults(items: LiteratureResult[]): LiteratureResult[] {
 }
 
 /**
- * Cek apakah artikel relevan dengan query user — LENIENT
- * Biarkan CrossRef yang handle relevansi via scoring.
- * Fungsi ini hanya filter kasar untuk artikel yang benar-benar tidak relevan.
- * Penting: jangan terlalu strict agar artikel Bahasa Indonesia tidak ikut terfilter.
+ * Removed: isRelevant() filter was too restrictive
+ * - AI keyword extractor produces English terms
+ * - Non-English titles (Indonesian, Chinese, Korean, etc.) won't match
+ * - CrossRef's native relevance scoring (sort=relevance) is sufficient
+ * - We keep original query terms for display only
  */
-function isRelevant(item: LiteratureResult, queryTerms: string[]): boolean {
-  if (queryTerms.length === 0) return true
-
-  const searchText = `${item.title} ${item.abstract ?? ""}`.toLowerCase()
-
-  // Cari minimal 1 term dari query ASLI (bukan AI keywords Inggris) yang cocok
-  const matches = queryTerms.filter((term) => {
-    const normalizedTerm = term.toLowerCase().replace(/^["']|["']$/g, "").trim()
-    if (normalizedTerm.length <= 3) return true
-    return searchText.includes(normalizedTerm)
-  })
-
-  // Sangat lenient: butuh minimal 1 match dari term >3 karakter
-  const meaningfulTermCount = queryTerms.filter((t) => t.replace(/^["']|["']$/g, "").length > 3).length
-  return matches.length >= Math.min(1, meaningfulTermCount)
-}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -132,14 +117,6 @@ export async function GET(req: Request) {
       // Fallback: pakai query asli
       console.log(`[Search] AI extraction failed, using original: "${query}"`)
     }
-
-    // Ekstrak term individual untuk filtering (gabungkan AI keywords + query asli)
-    const originalTerms = query.split(/\s+/).filter((w) => w.length > 4)
-    const aiTerms = searchQuery
-      .split(/AND|OR|&&|\|\|/i)
-      .map((t) => t.trim())
-      .filter(Boolean)
-    const queryTerms = [...new Set([...aiTerms, ...originalTerms])] // unique
 
     // === Langkah 2: Panggil CrossRef ===
     const url = new URL("https://api.crossref.org/works")
@@ -193,7 +170,10 @@ export async function GET(req: Request) {
         type: item.type ?? "article",
       }))
       .filter((item) => item.title !== "No title") // hapus yang tanpa judul
-      .filter((item) => isRelevant(item, queryTerms)) // filter relevansi
+      // ✅ Tidak pakai isRelevant lagi — filter itu terlalu ketat dan
+      //    mengecualikan artikel non-Inggris (Indonesia, China, Korea, dll)
+      //    karena AI keyword extractor menghasilkan kata kunci Inggris.
+      //    CrossRef sorting by relevance sudah cukup baik.
 
     // === Langkah 4: Deduplikasi ===
     results = deduplicateResults(results)
