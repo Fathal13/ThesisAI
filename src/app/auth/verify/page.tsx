@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Loader2, Mail, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
@@ -9,9 +9,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-export const dynamic = "force-dynamic"
-
 export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-full flex items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-primary" />
+      </div>
+    }>
+      <VerifyEmailForm />
+    </Suspense>
+  )
+}
+
+function VerifyEmailForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
