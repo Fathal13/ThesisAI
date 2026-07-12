@@ -58,7 +58,10 @@ function getTypeDisplay(type: string): { icon: string; label: string } {
 export default function LiteraturePage() {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<LiteratureResult[]>([])
-  const [total, setTotal] = useState(0)
+  const [total, setTotal] = useState(0) // hasil ditampilkan di halaman ini
+  const [totalFiltered, setTotalFiltered] = useState(0) // hasil setelah filter & dedup
+  const [totalItems, setTotalItems] = useState(0) // total tersedia di CrossRef
+  const [typeBreakdown, setTypeBreakdown] = useState<Record<string, number>>({})
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -98,7 +101,10 @@ export default function LiteraturePage() {
       }
 
       setResults(data.results)
-      setTotal(data.totalApi ?? data.results.length)
+      setTotal(data.total ?? data.results.length)
+      setTotalFiltered(data.totalFiltered ?? 0)
+      setTotalItems(data.totalItems ?? 0)
+      setTypeBreakdown(data.typeBreakdown ?? {})
       setPage(data.page)
       if (data.searchQuery) setSearchKeywords(data.searchQuery)
     } catch {
@@ -202,7 +208,7 @@ export default function LiteraturePage() {
     if (e.key === "Enter") search(0)
   }
 
-  const totalPages = Math.ceil(total / 10)
+  const totalPages = Math.ceil(totalFiltered / 10)
 
   const filteredCollection = collection.filter((item) => {
     if (!collectionSearch) return true
@@ -297,9 +303,28 @@ export default function LiteraturePage() {
                   <code className="bg-muted px-2 py-0.5 rounded text-xs">{searchKeywords}</code>
                 </div>
               )}
-              <p className="text-sm text-muted-foreground">
-                Menampilkan {results.length} hasil
-              </p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mb-4">
+                <span>
+                  Menampilkan halaman <strong>{page + 1}</strong> ({results.length} hasil)
+                  {totalFiltered > 0 && <span> dari <strong>{totalFiltered}</strong> hasil relevan</span>}
+                  {totalItems > 0 && <span> · <strong>{totalItems.toLocaleString("id-ID")}</strong> tersedia di CrossRef</span>}
+                </span>
+              </div>
+              {/* Type breakdown */}
+              {Object.keys(typeBreakdown).length > 1 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {Object.entries(typeBreakdown).map(([type, count]) => {
+                    const { icon, label } = getTypeDisplay(type)
+                    return (
+                      <Badge key={type} variant="secondary" className="text-xs gap-1">
+                        <span>{icon}</span>
+                        <span>{label}</span>
+                        <span className="ml-0.5 font-semibold">{count}</span>
+                      </Badge>
+                    )
+                  })}
+                </div>
+              )}
 
               <div className="space-y-4">
                 {results.map((item) => {

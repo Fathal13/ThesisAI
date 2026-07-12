@@ -110,7 +110,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const query = searchParams.get("q")
   const page = Number(searchParams.get("page")) || 0
-  const rows = 15 // ambil lebih banyak untuk filtering
+  // Ambil lebih banyak (40) supaya bisa banyak halaman & filter relevansi ketat
+  const rows = 40
   // Filter jurnal saja: journal-article, proceedings-article, book-chapter, book, monograph
   const journalOnly = searchParams.get("journalOnly") === "true"
 
@@ -172,6 +173,8 @@ export async function GET(req: Request) {
 
     const data = await res.json()
     const items: CrossRefItem[] = data.message?.items ?? []
+    // Total available from CrossRef (bisa ribuan)
+    const totalItems = data.message?.["total-items"] ?? 0
 
     // === Langkah 3: Transform & Filter ===
     let results: LiteratureResult[] = items
@@ -195,16 +198,25 @@ export async function GET(req: Request) {
     // === Langkah 4: Deduplikasi ===
     results = deduplicateResults(results)
 
-    // Batasi hasil ke max 10 untuk ditampilkan
+    // Hitung breakdown by type untuk info ke user
+    const typeBreakdown: Record<string, number> = {}
+    for (const item of results) {
+      typeBreakdown[item.type] = (typeBreakdown[item.type] || 0) + 1
+    }
+
+    // Batasi hasil ke max 10 per page untuk ditampilkan
     const displayResults = results.slice(0, 10)
 
     return NextResponse.json({
       results: displayResults,
-      total: displayResults.length,
-      totalApi: items.length,
+      total: displayResults.length, // hasil di halaman ini (max 10)
+      totalFiltered: results.length, // total setelah filter & dedup
+      totalItems, // total tersedia di CrossRef (bisa ribuan)
+      totalApi: items.length, // item yang di-fetch API ini (max 40)
       page,
       rows: 10,
       searchQuery, // kirim balik keyword yang dipakai
+      typeBreakdown, // breakdown by type untuk info user
     })
   } catch (error) {
     console.error("CrossRef search error:", error)
