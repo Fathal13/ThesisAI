@@ -238,7 +238,7 @@ Phase 6: Dashboard      ██████████████████�
 Phase 7: Donasi         ████████████░░░░░░░░░░   ~60%
 Phase 8: Final + Launch ████████████████████████ 100%
 
-TOTAL: ████████████████████████████████████████   ~95%
+TOTAL: ████████████████████████████████████████   ~97%
 ```
 
 ---
@@ -440,4 +440,35 @@ TOTAL: ████████████████████████�
   - Update `search()` call include `journalOnly` param
 
 **Build & Lint**: 0 errors, 0 warnings ✅
-**Total progress: ~95%** 🚀
+**Total progress: ~97%** 🚀
+
+---
+
+### 🗓️ Sesi 13 Juli 2026 — Literature Search Improvements & Bug Fixes
+
+**✅ Fix: Pagination Konsisten (Server-side Cache)**
+- In-memory cache `SEARCH_CACHE` (Map) di `src/app/api/literature/search/route.ts`
+- Page 0: fetch 200 artikel dari CrossRef, transform + dedup + cache (TTL 10 menit)
+- Page 1+: ambil slice dari cache, bukan fetch baru → hasil konsisten
+- Auto-cleanup cache expired tiap 5 menit
+
+**✅ Fix: Artikel Indonesia/China/Korea Hilang**
+- Hapus fungsi `isRelevant()` yang filter literal dengan AI keywords Inggris
+- CrossRef native relevance scoring (`sort=relevance`) sudah handle multibahasa
+- Sekarang cari "kecerdasan buatan" / "AI" → dapat jurnal Indonesia, China, Korea, global
+
+**✅ Fix: Collection Count 0 Saat Refresh**
+- `fetchCollection()` jalan di `useEffect` mount, bukan cuma tab click
+- Badge "Koleksi Saya (N)" langsung benar saat refresh halaman
+
+**✅ Fix: Migration Donasi Duplicate Policy**
+- `supabase/migration-005.sql`: tambah `DROP POLICY IF EXISTS` sebelum `CREATE POLICY`
+- Migration bisa di-run berulang tanpa error "policy already exists"
+
+**✅ Feature: Sort Hasil Pencarian by Tahun (Terbaru Dulu)**
+- Setelah dedup, hasil di-sort `b.year - a.year` (descending)
+- Artikel tanpa tahun ditaruh paling bawah
+- User dapet penelitian terkini di halaman pertama
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~97%** 🚀
