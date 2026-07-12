@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+export const dynamic = "force-dynamic"
+
 export default function VerifyEmailPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
