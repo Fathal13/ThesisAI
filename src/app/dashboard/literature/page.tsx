@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2, Newspaper, Book, GraduationCap, FileStack } from "lucide-react"
+import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -61,7 +61,6 @@ export default function LiteraturePage() {
   const [total, setTotal] = useState(0) // hasil ditampilkan di halaman ini
   const [totalFiltered, setTotalFiltered] = useState(0) // hasil setelah filter & dedup
   const [totalItems, setTotalItems] = useState(0) // total tersedia di CrossRef
-  const [typeBreakdown, setTypeBreakdown] = useState<Record<string, number>>({})
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -77,9 +76,6 @@ export default function LiteraturePage() {
   const [collectionSearch, setCollectionSearch] = useState("")
   const [activeTab, setActiveTab] = useState("cari")
 
-  const [searchKeywords, setSearchKeywords] = useState<string | null>(null)
-  const [journalOnly, setJournalOnly] = useState(true) // default: filter jurnal saja
-
   const search = useCallback(async (pageNum = 0) => {
     if (!query || query.length < 3) {
       setError("Minimal 3 karakter untuk mencari.")
@@ -89,10 +85,9 @@ export default function LiteraturePage() {
     setLoading(true)
     setError("")
     setSearched(true)
-    setSearchKeywords(null)
 
     try {
-      const res = await fetch(`/api/literature/search?q=${encodeURIComponent(query)}&page=${pageNum}&journalOnly=${journalOnly}`)
+      const res = await fetch(`/api/literature/search?q=${encodeURIComponent(query)}&page=${pageNum}&journalOnly=true`)
       const data = await res.json()
 
       if (!res.ok) {
@@ -104,15 +99,13 @@ export default function LiteraturePage() {
       setTotal(data.total ?? data.results.length)
       setTotalFiltered(data.totalFiltered ?? 0)
       setTotalItems(data.totalItems ?? 0)
-      setTypeBreakdown(data.typeBreakdown ?? {})
       setPage(data.page)
-      if (data.searchQuery) setSearchKeywords(data.searchQuery)
     } catch {
       setError("Gagal terhubung ke server. Coba lagi.")
     } finally {
       setLoading(false)
     }
-  }, [query, journalOnly])
+  }, [query])
 
   async function fetchCollection() {
     setCollectionLoading(true)
@@ -268,17 +261,6 @@ export default function LiteraturePage() {
             </Button>
           </div>
 
-          {/* Filter: Jurnal saja */}
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={journalOnly}
-              onChange={(e) => setJournalOnly(e.target.checked)}
-              className="size-4 rounded border-input bg-background text-primary focus:ring-primary"
-            />
-            <span className="text-muted-foreground">📄 Jurnal saja (sembunyikan buku, dataset, dll)</span>
-          </label>
-
           {error && (
             <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
               {error}
@@ -299,12 +281,6 @@ export default function LiteraturePage() {
             </div>
           ) : results.length > 0 ? (
             <>
-              {searchKeywords && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <span>🔍 Kata kunci:</span>
-                  <code className="bg-muted px-2 py-0.5 rounded text-xs">{searchKeywords}</code>
-                </div>
-              )}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mb-4">
                 <span>
                   Menampilkan halaman <strong>{page + 1}</strong> ({results.length} hasil)
@@ -312,21 +288,6 @@ export default function LiteraturePage() {
                   {totalItems > 0 && <span> · <strong>{totalItems.toLocaleString("id-ID")}</strong> tersedia di CrossRef</span>}
                 </span>
               </div>
-              {/* Type breakdown */}
-              {Object.keys(typeBreakdown).length > 1 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {Object.entries(typeBreakdown).map(([type, count]) => {
-                    const { icon, label } = getTypeDisplay(type)
-                    return (
-                      <Badge key={type} variant="secondary" className="text-xs gap-1">
-                        <span>{icon}</span>
-                        <span>{label}</span>
-                        <span className="ml-0.5 font-semibold">{count}</span>
-                      </Badge>
-                    )
-                  })}
-                </div>
-              )}
 
               <div className="space-y-4">
                 {results.map((item) => {
