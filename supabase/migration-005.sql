@@ -25,7 +25,8 @@ CREATE INDEX IF NOT EXISTS idx_donations_platform ON public.donations (platform)
 -- admin/service role bisa lihat semua
 ALTER TABLE public.donations ENABLE ROW LEVEL SECURITY;
 
--- Policy: user bisa lihat donasi mereka sendiri
+-- Policy: user bisa lihat donasi mereka sendiri (pakai IF NOT EXISTS)
+DROP POLICY IF EXISTS "Users can view own donations" ON public.donations;
 CREATE POLICY "Users can view own donations" ON public.donations
     FOR SELECT USING (auth.uid() = user_id);
 

@@ -128,7 +128,9 @@ export default function LiteraturePage() {
   }
 
   useEffect(() => {
-    if (activeTab === "koleksi") fetchCollection() // eslint-disable-line react-hooks/set-state-in-effect
+    // Fetch collection count on mount (for badge count), dan saat tab berubah
+    fetchCollection()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
   async function handleSaveToCollection(item: LiteratureResult) {
