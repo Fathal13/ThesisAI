@@ -28,7 +28,12 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [message, setMessage] = useState(
-    searchParams.get("message") ?? (searchParams.get("reset") === "success" ? "✅ Password berhasil diperbarui! Silakan login." : "")
+    searchParams.get("message") ??
+    (searchParams.get("reset") === "success"
+      ? "✅ Password berhasil diperbarui! Silakan login."
+      : searchParams.get("verified") === "true"
+        ? "✅ Email berhasil diverifikasi! Silakan login."
+        : "")
   )
 
   // Jika ada parameter reset=true dari email reset password, redirect ke halaman reset
@@ -181,7 +186,7 @@ function LoginForm() {
                         <AlertCircle className="size-4" /> {error}
                       </p>
                       {/* Tampilkan tombol kirim ulang jika error karena not confirmed */}
-                      {(error.includes("belum dikonfirmasi") || error.includes("SPAM")) && (
+                      {(error.includes("belum dikonfirmasi") || error.includes("SPAM") || error.includes("Kirim Ulang")) && (
                         <Button
                           type="button"
                           variant="outline"

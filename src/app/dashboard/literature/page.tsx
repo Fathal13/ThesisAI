@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2 } from "lucide-react"
+import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2, Newspaper, Book, GraduationCap, FileStack } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -40,6 +40,21 @@ interface Summary {
   gap: string
 }
 
+const TYPE_ICONS: Record<string, { icon: string; label: string }> = {
+  "journal-article": { icon: "📄", label: "Jurnal" },
+  "proceedings-article": { icon: "🎤", label: "Prosiding" },
+  "book-chapter": { icon: "📖", label: "Bab Buku" },
+  book: { icon: "📘", label: "Buku" },
+  monograph: { icon: "📕", label: "Monograf" },
+  "reference-entry": { icon: "📑", label: "Entri Referensi" },
+  dataset: { icon: "📊", label: "Dataset" },
+  report: { icon: "📋", label: "Laporan" },
+}
+
+function getTypeDisplay(type: string): { icon: string; label: string } {
+  return TYPE_ICONS[type] ?? { icon: "📄", label: type.replace("-", " ") }
+}
+
 export default function LiteraturePage() {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<LiteratureResult[]>([])
@@ -60,6 +75,7 @@ export default function LiteraturePage() {
   const [activeTab, setActiveTab] = useState("cari")
 
   const [searchKeywords, setSearchKeywords] = useState<string | null>(null)
+  const [journalOnly, setJournalOnly] = useState(true) // default: filter jurnal saja
 
   const search = useCallback(async (pageNum = 0) => {
     if (!query || query.length < 3) {
@@ -73,7 +89,7 @@ export default function LiteraturePage() {
     setSearchKeywords(null)
 
     try {
-      const res = await fetch(`/api/literature/search?q=${encodeURIComponent(query)}&page=${pageNum}`)
+      const res = await fetch(`/api/literature/search?q=${encodeURIComponent(query)}&page=${pageNum}&journalOnly=${journalOnly}`)
       const data = await res.json()
 
       if (!res.ok) {
@@ -90,7 +106,7 @@ export default function LiteraturePage() {
     } finally {
       setLoading(false)
     }
-  }, [query])
+  }, [query, journalOnly])
 
   async function fetchCollection() {
     setCollectionLoading(true)
@@ -244,6 +260,17 @@ export default function LiteraturePage() {
             </Button>
           </div>
 
+          {/* Filter: Jurnal saja */}
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={journalOnly}
+              onChange={(e) => setJournalOnly(e.target.checked)}
+              className="size-4 rounded border-input bg-background text-primary focus:ring-primary"
+            />
+            <span className="text-muted-foreground">📄 Jurnal saja (sembunyikan buku, dataset, dll)</span>
+          </label>
+
           {error && (
             <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
               {error}
@@ -297,8 +324,9 @@ export default function LiteraturePage() {
                         </div>
                         <div className="flex flex-wrap gap-2 mt-2">
                           {item.type && (
-                            <Badge variant="secondary" className="text-xs">
-                              {item.type.replace("-", " ")}
+                            <Badge variant="secondary" className="text-xs gap-1">
+                              <span>{getTypeDisplay(item.type).icon}</span>
+                              <span>{getTypeDisplay(item.type).label}</span>
                             </Badge>
                           )}
                           {item.source && (

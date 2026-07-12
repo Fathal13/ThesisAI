@@ -2,7 +2,6 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 import { checkLoginRateLimit, checkSignupRateLimit } from "@/lib/rate-limit"
-import { autoConfirmUser } from "@/lib/supabase-admin"
 
 const CSRF_TOKEN_NAME = "csrf_token"
 
@@ -199,7 +198,7 @@ export async function POST(request: NextRequest) {
           return respond(
             {
               error:
-                "Email belum dikonfirmasi. Coba daftar ulang — sistem akan auto-konfirmasi setelah pendaftaran.",
+                "Email belum dikonfirmasi. Cek inbox & SPAM, lalu klik link konfirmasi. Atau klik 'Kirim Ulang Email Konfirmasi' di bawah.",
             },
             401
           )
@@ -227,7 +226,6 @@ export async function POST(request: NextRequest) {
       if (error) {
         auditLog("signup", normalizedEmail, ip, "failure", error.message)
         // Gunakan pesan generik untuk mencegah email enumeration
-        // Selalu return success-like response agar penyerang tidak bisa enum email
         if (error.message.includes("already")) {
           return respond({
             user: null,
@@ -241,36 +239,13 @@ export async function POST(request: NextRequest) {
 
       auditLog("signup", normalizedEmail, ip, "success")
 
-      // Auto-confirm email lewat Supabase Admin API
-      // Workaround untuk masalah email confirmation free tier
-      if (data.user?.id) {
-        const confirmResult = await autoConfirmUser(data.user.id)
-
-        if (confirmResult.success) {
-          // Auto-confirm berhasil — langsung login user supaya dapat session
-          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email: normalizedEmail,
-            password,
-          })
-
-          if (!signInError && signInData.session) {
-            return respond({
-              user: signInData.user,
-              session: signInData.session,
-              message: "🎉 Akun berhasil dibuat! Kamu sudah bisa login.",
-              confirmationSent: false,
-            })
-          }
-        }
-
-        // Fallback: auto-confirm gagal atau login gagal — manual confirmation
-        return respond({
-          user: data.user,
-          session: null,
-          message: "📧 Email konfirmasi sudah dikirim! Cek inbox dan folder SPAM.",
-          confirmationSent: true,
-        })
-      }
+      // Email konfirmasi standar — user harus konfirmasi sebelum bisa akses dashboard
+      return respond({
+        user: null,
+        session: null,
+        message: "📧 Email konfirmasi sudah dikirim! Cek inbox dan folder SPAM. Link berlaku 24 jam.",
+        confirmationSent: true,
+      })
     }
 
     return respond({ error: "Action tidak dikenal" }, 400)

@@ -238,7 +238,7 @@ Phase 6: Dashboard      ██████████████████�
 Phase 7: Donasi         ████████████░░░░░░░░░░   ~60%
 Phase 8: Final + Launch ████████████████████████ 100%
 
-TOTAL: ████████████████████████████████████████   ~91%
+TOTAL: ████████████████████████████████████████   ~95%
 ```
 
 ---
@@ -414,41 +414,30 @@ TOTAL: ████████████████████████�
 
 ---
 
-### 🔴 Issue Baru untuk Diselesaikan Besok
+### 🗓️ Sesi 12 Juli 2026 — Issue Resolution Complete
 
-#### (1) User Langsung Masuk Dashboard Sebelum Konfirmasi Email
-**Masalah:**
-- Signup → auto-confirm via `supabase.auth.admin.updateUserById()` + langsung login
-- Ini melewati email confirmation yang seharusnya mencegah akun spam / fake email
-- User dengan email typo/ngawur tetap bisa akses dashboard
+**✅ Issue #1: User Langsung Masuk Dashboard Sebelum Konfirmasi Email** — **SELESAI**
+- Nonaktifkan auto-confirm di `src/app/api/auth/route.ts` (hapus `autoConfirmUser` call)
+- Proxy (`src/proxy.ts`) cek `session.user.email_confirmed_at` → redirect ke `/auth/verify` jika belum confirmed
+- Buat halaman verifikasi baru: `src/app/auth/verify/page.tsx` dengan tombol "Kirim Ulang Email Konfirmasi"
+- Login page update: tampilkan tombol kirim ulang saat error "email belum dikonfirmasi"
+- Auth callback handler: `src/app/auth/callback/route.ts` untuk handle Supabase PKCE flow
+- Error message login diupdate: tidak lagi mention auto-confirm, arahkan user cek email/SPAM
 
-**Solusi plan:**
-- Nonaktifkan auto-confirm di `supabase-admin.ts`
-- Kirim email konfirmasi standar Supabase
-- Di middleware/proxy: cek `email_confirmed_at` user, redirect ke halaman "verifikasi email" jika belum confirmed
-- Beri opsi kirim ulang email konfirmasi di halaman tersebut
+**✅ Issue #2: Link Konfirmasi Email Supabase Mengarah ke localhost** — **DOKUMENTASI SELESAI**
+- Buat panduan manual: `SUPABASE_EMAIL_CONFIG.md`
+- Site URL: `https://thesisai.vercel.app`
+- Redirect URLs: `http://localhost:3000/**` + `https://thesisai.vercel.app/**` + `/auth/verify/**` + `/auth/reset-password/**`
+- User perlu jalankan manual di Supabase Dashboard → Authentication → URL Configuration
 
-#### (2) Link Konfirmasi Email Supabase Mengarah ke localhost
-**Masalah:**
-- Site URL di Supabase Dashboard masih `http://localhost:3000` (default)
-- Email konfirmasi yang dikirim link-nya ke localhost, bukan ke thesisai.vercel.app
+**✅ Issue #3: Tambah Jurnal Ilmiah di Pencarian Literatur** — **SELESAI**
+- API `src/app/api/literature/search/route.ts`: tambah parameter `journalOnly` (default true)
+- Filter CrossRef `type:journal-article,type:proceedings-article,type:book-chapter,type:book,type:monograph` via `filter` param
+- Frontend `src/app/dashboard/literature/page.tsx`:
+  - Tambah state `journalOnly` (default true)
+  - Checkbox "📄 Jurnal saja (sembunyikan buku, dataset, dll)" di search bar
+  - Badge type dengan icon: 📄 Jurnal, 🎤 Prosiding, 📖 Bab Buku, 📘 Buku, 📕 Monograf, 📑 Entri Referensi, 📊 Dataset, 📋 Laporan
+  - Update `search()` call include `journalOnly` param
 
-**Solusi (manual di Supabase Dashboard):**
-1. Buka supabase.com → Project → Authentication → URL Configuration
-2. Set **Site URL** → `https://thesisai.vercel.app`
-3. Tambah **Redirect URLs**:
-   - `http://localhost:3000/**` (untuk dev)
-   - `https://thesisai.vercel.app/**` (untuk production)
-4. Save
-
-#### (3) Tambah Jurnal Ilmiah di Pencarian Literatur
-**Masalah:**
-- Saat ini result dari CrossRef tidak difilter berdasarkan type
-- Banyak hasil `book`, `report`, `dataset`, `reference-entry` yang bukan artikel jurnal ilmiah
-- Mahasiswa butuh jurnal sebagai referensi skripsi
-
-**Solusi rencana:**
-- Tambah `filter=type:journal-article` di query CrossRef
-- Atau tambah filter `item.type` untuk hanya tampilkan: `journal-article`, `proceedings-article`, `book-chapter`, `book`, `monograph`
-- Tampilkan badge/icon jenis publikasi (📄 Jurnal, 📘 Buku, 🎤 Prosiding, dll)
-- (Opsional) Tambah checkbox filter "Jurnal saja" di UI
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~95%** 🚀

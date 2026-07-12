@@ -111,6 +111,8 @@ export async function GET(req: Request) {
   const query = searchParams.get("q")
   const page = Number(searchParams.get("page")) || 0
   const rows = 15 // ambil lebih banyak untuk filtering
+  // Filter jurnal saja: journal-article, proceedings-article, book-chapter, book, monograph
+  const journalOnly = searchParams.get("journalOnly") === "true"
 
   if (!query || query.length < 3) {
     return NextResponse.json({ error: "Minimal 3 karakter" }, { status: 400 })
@@ -150,6 +152,15 @@ export async function GET(req: Request) {
     url.searchParams.set("sort", "relevance")
     // Polite pool
     url.searchParams.set("mailto", "thesisai@app")
+
+    // Filter tipe publikasi jika journalOnly
+    if (journalOnly) {
+      // CrossRef types: journal-article, proceedings-article, book-chapter, book, monograph, reference-entry, dataset, etc.
+      url.searchParams.set(
+        "filter",
+        "type:journal-article,type:proceedings-article,type:book-chapter,type:book,type:monograph"
+      )
+    }
 
     const res = await fetch(url.toString(), {
       headers: { "User-Agent": "ThesisAI/1.0 (mailto:thesisai@app)" },

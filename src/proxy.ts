@@ -41,8 +41,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  // If logged in and visiting auth pages, redirect to dashboard
-  if (session && request.nextUrl.pathname.startsWith("/auth")) {
+  // If logged in but email not confirmed, redirect to verify page (except for verify page itself)
+  if (isProtected && session && !session.user.email_confirmed_at) {
+    const redirectUrl = new URL("/auth/verify", request.url)
+    redirectUrl.searchParams.set("redirect", request.nextUrl.pathname)
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  // If logged in and visiting auth pages (except verify), redirect to dashboard
+  if (session && request.nextUrl.pathname.startsWith("/auth") && !request.nextUrl.pathname.startsWith("/auth/verify")) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
