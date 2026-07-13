@@ -7,6 +7,7 @@ export async function GET(req: Request) {
   const q = searchParams.get("q")
   const page = Number(searchParams.get("page")) || 0
   const perPage = Number(searchParams.get("perPage")) || 20
+  const journalOnly = searchParams.get("journalOnly") === "true"
 
   if (!q || q.length < 3) {
     return NextResponse.json({ error: "Minimal 3 karakter" }, { status: 400 })
@@ -25,14 +26,23 @@ export async function GET(req: Request) {
   }
 
   try {
-    const { results, total } = await searchOpenAlex(searchQuery, page, perPage)
+    const { results, total } = await searchOpenAlex(searchQuery, page, perPage, journalOnly)
+
+    const totalPages = Math.ceil(total / perPage)
+    const showingCount = Math.min(perPage, total - page * perPage)
+
     return NextResponse.json({
       results,
       total,
+      totalPages,
       page,
       perPage,
-      totalPages: Math.ceil(total / perPage),
       searchQuery,
+      showing: Math.max(0, showingCount),
+      journalOnly,
+      message: total > 0
+        ? `Menampilkan ${showingCount} dari ${total.toLocaleString("id-ID")} artikel Open Access${journalOnly ? " (jurnal saja)" : ""} (halaman ${page + 1} dari ${totalPages})`
+        : "Tidak ada artikel ditemukan",
     })
   } catch (error) {
     console.error("OpenAlex search error:", error)

@@ -76,9 +76,16 @@ export async function searchOpenAlex(
   query: string,
   page = 0,
   perPage = 20,
+  journalOnly = true,
 ): Promise<{ results: OpenAlexResult[]; total: number }> {
   const url = new URL("https://api.openalex.org/works")
-  url.searchParams.set("filter", "open_access.is_oa:true")
+
+  // Filter: Open Access + (opsional) journal article only
+  let filterStr = "open_access.is_oa:true"
+  if (journalOnly) {
+    filterStr += ",type:article"
+  }
+  url.searchParams.set("filter", filterStr)
   url.searchParams.set("search", query)
   url.searchParams.set("page", String(page + 1))
   url.searchParams.set("per-page", String(perPage))

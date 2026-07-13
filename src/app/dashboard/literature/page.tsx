@@ -1,7 +1,21 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2, Unlock, Lock, PenLine } from "lucide-react"
+import {
+  Search,
+  BookOpen,
+  Loader2,
+  ExternalLink,
+  FileText,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  Bookmark,
+  Trash2,
+  Unlock,
+  PenLine,
+  Filter,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +25,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { AcademicDisclaimerSimple } from "@/components/disclaimer"
 
-interface LiteratureResult {
+// ─── Types ───
+
+interface OpenAlexResult {
   doi: string | null
   title: string
   author: string
@@ -20,15 +36,10 @@ interface LiteratureResult {
   url: string
   abstract: string | null
   type: string
-}
-
-interface OpenAlexResult extends LiteratureResult {
   openAccessPdf: string | null
   oaStatus: string | null
   citationCount: number
 }
-
-type SearchResult = LiteratureResult | OpenAlexResult
 
 interface CollectionItem {
   id: string
@@ -48,14 +59,16 @@ interface Summary {
   gap: string
 }
 
+// ─── Type Helpers ───
+
 const TYPE_ICONS: Record<string, { icon: string; label: string }> = {
-  "journal-article": { icon: "📄", label: "Jurnal" },
-  "proceedings-article": { icon: "🎤", label: "Prosiding" },
-  "book-chapter": { icon: "📖", label: "Bab Buku" },
+  article: { icon: "📄", label: "Artikel Jurnal" },
+  review: { icon: "📋", label: "Review" },
   book: { icon: "📘", label: "Buku" },
-  monograph: { icon: "📕", label: "Monograf" },
-  "reference-entry": { icon: "📑", label: "Entri Referensi" },
+  "book-chapter": { icon: "📖", label: "Bab Buku" },
+  preprint: { icon: "🔬", label: "Preprint" },
   dataset: { icon: "📊", label: "Dataset" },
+  dissertation: { icon: "🎓", label: "Disertasi" },
   report: { icon: "📋", label: "Laporan" },
 }
 
@@ -63,23 +76,47 @@ function getTypeDisplay(type: string): { icon: string; label: string } {
   return TYPE_ICONS[type] ?? { icon: "📄", label: type.replace("-", " ") }
 }
 
-function isOpenAlexResult(item: SearchResult): item is OpenAlexResult {
-  return "openAccessPdf" in item
+function getOAStatusColor(status: string | null): string {
+  const colors: Record<string, string> = {
+    gold: "bg-yellow-500 dark:bg-yellow-600",
+    green: "bg-green-600 dark:bg-green-700",
+    hybrid: "bg-blue-600 dark:bg-blue-700",
+    bronze: "bg-orange-600 dark:bg-orange-700",
+    closed: "bg-gray-500 dark:bg-gray-600",
+  }
+  return colors[status ?? ""] ?? "bg-green-600 dark:bg-green-700"
 }
 
+function getOAStatusLabel(status: string | null): string {
+  const labels: Record<string, string> = {
+    gold: "Gold OA",
+    green: "Green OA",
+    hybrid: "Hybrid OA",
+    bronze: "Bronze OA",
+    closed: "Closed",
+  }
+  return labels[status ?? ""] ?? "Open Access"
+}
+
+// ─── Component ───
+
 export default function LiteraturePage() {
+  // Search state
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<SearchResult[]>([])
-  const [totalFiltered, setTotalFiltered] = useState(0)
-  const [totalItems, setTotalItems] = useState(0)
+  const [results, setResults] = useState<OpenAlexResult[]>([])
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [searched, setSearched] = useState(false)
+  const [searchInfo, setSearchInfo] = useState("")
+  const [journalOnly, setJournalOnly] = useState(true)
+
+  // Summary state
   const [summarizing, setSummarizing] = useState<string | null>(null)
   const [summaries, setSummaries] = useState<Record<string, Summary>>({})
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [searched, setSearched] = useState(false)
-  const [searchSource, setSearchSource] = useState<"openalex" | "crossref">("openalex")
 
   // Collection state
   const [collection, setCollection] = useState<CollectionItem[]>([])
@@ -97,50 +134,57 @@ export default function LiteraturePage() {
   const [converting, setConverting] = useState(false)
   const [convertSuccess, setConvertSuccess] = useState<string | null>(null)
 
-  const search = useCallback(async (pageNum = 0) => {
-    if (!query || query.length < 3) {
-      setError("Minimal 3 karakter untuk mencari.")
-      return
-    }
+  // ─── Search ───
 
-    setLoading(true)
-    setError("")
-    setSearched(true)
-
-    try {
-      if (searchSource === "openalex") {
-        const res = await fetch(`/api/literature/search-openalex?q=${encodeURIComponent(query)}&page=${pageNum}&perPage=20`)
-        const data = await res.json()
-
-        if (!res.ok) {
-          setError(data.error ?? "Gagal mencari")
-          return
-        }
-
-        setResults(data.results)
-        setTotalFiltered(data.total ?? 0)
-        setTotalItems(data.total ?? 0)
-        setPage(data.page)
-      } else {
-        const res = await fetch(`/api/literature/search?q=${encodeURIComponent(query)}&page=${pageNum}&journalOnly=true`)
-        const data = await res.json()
-
-        if (!res.ok) {
-          setError(data.error ?? "Gagal mencari")
-          return
-        }
-
-        setResults(data.results)
-        setTotalFiltered(data.totalFiltered ?? 0)
-        setTotalItems(data.totalItems ?? 0)
-        setPage(data.page)
+  const search = useCallback(
+    async (pageNum = 0) => {
+      if (!query || query.length < 3) {
+        setError("Minimal 3 karakter untuk mencari.")
+        return
       }
-    } catch {
-      setError("Gagal terhubung ke server. Coba lagi.")
-    } finally {
-      setLoading(false)
-    }
-  }, [query, searchSource])
+
+      setLoading(true)
+      setError("")
+      setSearched(true)
+
+      try {
+        const params = new URLSearchParams({
+          q: query,
+          page: String(pageNum),
+          perPage: "20",
+          journalOnly: String(journalOnly),
+        })
+        const res = await fetch(`/api/literature/search-openalex?${params}`)
+        const data = await res.json()
+
+        if (!res.ok) {
+          setError(data.error ?? "Gagal mencari")
+          return
+        }
+
+        setResults(data.results)
+        setTotal(data.total ?? 0)
+        setTotalPages(data.totalPages ?? 0)
+        setPage(data.page)
+        setSearchInfo(data.message ?? "")
+      } catch {
+        setError("Gagal terhubung ke server. Coba lagi.")
+      } finally {
+        setLoading(false)
+      }
+    },
+    [query, journalOnly],
+  )
+
+  function handleSearch() {
+    search(0)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") search(0)
+  }
+
+  // ─── Collection ───
 
   async function fetchCollection() {
     setCollectionLoading(true)
@@ -157,7 +201,6 @@ export default function LiteraturePage() {
 
   useEffect(() => {
     let cancelled = false
-
     async function loadCollection() {
       setCollectionLoading(true)
       try {
@@ -170,19 +213,17 @@ export default function LiteraturePage() {
         if (!cancelled) setCollectionLoading(false)
       }
     }
-
     loadCollection()
-
     return () => {
       cancelled = true
     }
   }, [activeTab])
 
-  async function handleSaveToCollection(item: SearchResult) {
+  async function handleSaveToCollection(item: OpenAlexResult) {
     const saveKey = item.doi ?? `${item.title}_${item.year}`
     setSavingMap((prev) => ({ ...prev, [saveKey]: true }))
     try {
-      await fetch("/api/literature/save", {
+      const res = await fetch("/api/literature/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -190,12 +231,16 @@ export default function LiteraturePage() {
           penulis: item.author,
           tahun: item.year,
           doi: item.doi,
-          link: item.url,
+          link: item.openAccessPdf ?? item.url,
           abstrak: item.abstract,
         }),
       })
+      const data = await res.json()
+      if (!data.success && !data.existing) {
+        setError("Gagal menyimpan artikel")
+      }
     } catch {
-      // silent
+      setError("Gagal menyimpan. Coba lagi.")
     } finally {
       setSavingMap((prev) => ({ ...prev, [saveKey]: false }))
       fetchCollection()
@@ -216,7 +261,33 @@ export default function LiteraturePage() {
     }
   }
 
-  async function handleSummarize(item: SearchResult) {
+  // ─── Buka Artikel (PDF langsung dari OpenAlex) ───
+
+  function handleOpenArticle(item: OpenAlexResult) {
+    // OpenAlex sudah punya PDF URL langsung — buka aja
+    if (item.openAccessPdf) {
+      window.open(item.openAccessPdf, "_blank", "noopener,noreferrer")
+      return
+    }
+
+    // Fallback ke landing page
+    if (item.url) {
+      window.open(item.url, "_blank", "noopener,noreferrer")
+      return
+    }
+
+    // Fallback ke DOI
+    if (item.doi) {
+      window.open(`https://doi.org/${item.doi}`, "_blank", "noopener,noreferrer")
+      return
+    }
+
+    alert("Artikel ini tidak memiliki URL atau PDF.")
+  }
+
+  // ─── Rangkum dengan AI ───
+
+  async function handleSummarize(item: OpenAlexResult) {
     if (summaries[item.title]) {
       setExpanded((prev) => (prev === item.title ? null : item.title))
       return
@@ -225,10 +296,9 @@ export default function LiteraturePage() {
     setSummarizing(item.title)
 
     try {
-      // Coba enrichment dulu untuk dapetin TLDR (Semantic Scholar)
-      // TLDR lebih akurat karena dari full-text
       let abstractForAI = item.abstract
 
+      // Coba enrichment dulu untuk dapetin TLDR (Semantic Scholar)
       if (item.doi) {
         try {
           const enrichRes = await fetch("/api/literature/enrich", {
@@ -241,7 +311,6 @@ export default function LiteraturePage() {
             }),
           })
           const enrichData = await enrichRes.json()
-          // Kalau ada TLDR dari Semantic Scholar, pakai itu sebagai abstract pengganti
           if (enrichData?.tldr?.text) {
             abstractForAI = `TLDR (AI-generated summary): ${enrichData.tldr.text}\n\nOriginal Abstract: ${abstractForAI ?? "N/A"}`
           }
@@ -277,89 +346,12 @@ export default function LiteraturePage() {
     }
   }
 
-  async function handleOpenArticle(item: SearchResult) {
-    // OpenAlex results langsung punya PDF
-    if (isOpenAlexResult(item) && item.openAccessPdf) {
-      window.open(item.openAccessPdf, "_blank", "noopener,noreferrer")
-      return
-    }
-
-    if (!item.doi) {
-      if (item.url) {
-        window.open(item.url, "_blank", "noopener,noreferrer")
-        return
-      }
-      alert("Artikel ini tidak memiliki URL.")
-      return
-    }
-
-    // Coba enrichment untuk CrossRef results
-    setOpeningArticle(item.doi)
-    setError("")
-
-    try {
-      // Coba OpenAlex dulu (lebih cepat, langsung OA check)
-      const oaRes = await fetch(`https://api.openalex.org/works/doi:${item.doi}?mailto=thesisai@app`, {
-        signal: AbortSignal.timeout(6000),
-      })
-      if (oaRes.ok) {
-        const oaData = await oaRes.json()
-        const pdfUrl = oaData?.best_oa_location?.pdf_url ?? oaData?.primary_location?.pdf_url ?? null
-        if (pdfUrl) {
-          window.open(pdfUrl, "_blank", "noopener,noreferrer")
-          return
-        }
-      }
-    } catch {
-      // silent
-    } finally {
-      setOpeningArticle(null)
-    }
-
-    // Fallback: coba enrichment (Semantic Scholar -> Unpaywall)
-    setOpeningArticle(item.doi)
-    try {
-      const res = await fetch("/api/literature/enrich", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ doi: item.doi, title: item.title, abstract: item.abstract }),
-      })
-      const data = await res.json()
-
-      if (!res.ok) {
-        // Final fallback: buka halaman landing
-        const landingUrl = item.url || `https://doi.org/${item.doi}`
-        if (confirm(`Artikel ini mungkin tidak Open Access.\n\nBuka halaman artikel di ${landingUrl}?`)) {
-          window.open(landingUrl, "_blank", "noopener,noreferrer")
-        }
-        return
-      }
-
-      const pdfUrl = data?.openAccessPdf?.url
-      if (pdfUrl) {
-        window.open(pdfUrl, "_blank", "noopener,noreferrer")
-      } else {
-        const landingUrl = data?.url || item.url || `https://doi.org/${item.doi}`
-        if (confirm(`Artikel ini mungkin tidak Open Access.\n\nBuka halaman artikel di ${landingUrl}?`)) {
-          window.open(landingUrl, "_blank", "noopener,noreferrer")
-        }
-      }
-    } catch {
-      const landingUrl = item.url || `https://doi.org/${item.doi}`
-      if (confirm(`Gagal mengecek ketersediaan artikel.\n\nBuka halaman artikel di ${landingUrl}?`)) {
-        window.open(landingUrl, "_blank", "noopener,noreferrer")
-      }
-    } finally {
-      setOpeningArticle(null)
-    }
-  }
+  // ─── Convert to Bab ───
 
   async function handleConvertToBab() {
     if (!convertToBab) return
-
     setConverting(true)
     setConvertSuccess(null)
-
     try {
       const res = await fetch("/api/literature/convert-to-bab", {
         method: "POST",
@@ -370,14 +362,11 @@ export default function LiteraturePage() {
           judulSkripsi: "Skripsi",
         }),
       })
-
       const data = await res.json()
-
       if (!res.ok) {
         alert(data.error ?? "Gagal membuat draft bab")
         return
       }
-
       setConvertSuccess(`Draft berhasil ditambahkan ke Bab ${convertBabNumber}!`)
       setTimeout(() => setConvertSuccess(null), 3000)
     } catch {
@@ -388,22 +377,15 @@ export default function LiteraturePage() {
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") search(0)
-  }
-
-  const totalPages = Math.ceil(
-    (searchSource === "openalex" ? totalItems : totalFiltered) / 20
-  )
+  // ─── Derived ───
 
   const filteredCollection = collection.filter((item) => {
     if (!collectionSearch) return true
     const q = collectionSearch.toLowerCase()
-    return (
-      item.judul.toLowerCase().includes(q) ||
-      item.penulis.toLowerCase().includes(q)
-    )
+    return item.judul.toLowerCase().includes(q) || item.penulis.toLowerCase().includes(q)
   })
+
+  // ─── Render ───
 
   return (
     <div className="space-y-8">
@@ -413,7 +395,7 @@ export default function LiteraturePage() {
           Literatur Explorer
         </h1>
         <p className="text-muted-foreground mt-1">
-          Cari artikel ilmiah, rangkum dengan AI, jadikan draft BAB.
+          Cari artikel ilmiah Open Access, rangkum dengan AI, simpan ke koleksi, dan jadikan draft BAB.
         </p>
       </div>
 
@@ -421,7 +403,9 @@ export default function LiteraturePage() {
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v ?? "cari")}>
         <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="cari" className="flex-1 sm:flex-none">🔍 Cari</TabsTrigger>
+          <TabsTrigger value="cari" className="flex-1 sm:flex-none">
+            🔍 Cari
+          </TabsTrigger>
           <TabsTrigger value="koleksi" className="flex-1 sm:flex-none">
             📚 Koleksi Saya ({collection.length})
           </TabsTrigger>
@@ -429,40 +413,20 @@ export default function LiteraturePage() {
 
         {/* ─── TAB: CARI ─── */}
         <TabsContent value="cari" className="mt-6 space-y-6">
-          {/* Source Toggle */}
-          <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-1 w-fit">
-            <button
-              onClick={() => { setSearchSource("openalex"); setResults([]); setSearched(false) }}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
-                searchSource === "openalex"
-                  ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Unlock className="size-3.5" />
-              Open Access
-            </button>
-            <button
-              onClick={() => { setSearchSource("crossref"); setResults([]); setSearched(false) }}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
-                searchSource === "crossref"
-                  ? "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Lock className="size-3.5" />
-              Semua Artikel
-            </button>
+          {/* Info bar — OpenAlex source */}
+          <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 rounded-lg px-4 py-2.5 text-sm">
+            <Unlock className="size-4 text-green-600 shrink-0" />
+            <span className="text-green-800 dark:text-green-300">
+              Mencari di <strong>OpenAlex</strong> — 250+ juta artikel <strong>Open Access</strong> dengan akses PDF langsung.
+            </span>
           </div>
 
           {/* Search Bar */}
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
-                placeholder={searchSource === "openalex" ? "Cari artikel Open Access..." : "Cari topik, judul, atau penulis..."}
+                placeholder="Cari topik, judul, atau penulis..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -471,7 +435,7 @@ export default function LiteraturePage() {
               />
             </div>
             <Button
-              onClick={() => search(0)}
+              onClick={handleSearch}
               disabled={loading || query.length < 3}
               className="h-12 px-6"
             >
@@ -480,20 +444,34 @@ export default function LiteraturePage() {
             </Button>
           </div>
 
+          {/* Filter row */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="size-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Filter:</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setJournalOnly((v) => !v)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
+                journalOnly
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted hover:bg-muted/80 text-muted-foreground border-border",
+              )}
+              aria-label="Toggle filter jurnal saja"
+            >
+              <Unlock className={cn("size-3.5", journalOnly ? "text-primary-foreground" : "text-muted-foreground")} />
+              <span>{journalOnly ? "Artikel jurnal saja" : "Semua tipe artikel"}</span>
+            </button>
+          </div>
+
+          {/* Error */}
           {error && (
             <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
               {error}
             </div>
           )}
-
-          {/* Search info */}
-          <div className="text-xs text-muted-foreground">
-            {searchSource === "openalex" ? (
-              <span>🔓 Hanya menampilkan artikel <strong>Open Access</strong> dari OpenAlex — bisa langsung baca PDF.</span>
-            ) : (
-              <span>🔍 Semua artikel dari CrossRef (termasuk yang tidak Open Access). Hasil tidak terbatas pada Indonesia.</span>
-            )}
-          </div>
 
           {/* Results */}
           {loading ? (
@@ -503,16 +481,9 @@ export default function LiteraturePage() {
             </div>
           ) : results.length > 0 ? (
             <>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mb-4">
-                <span>
-                  Menampilkan halaman <strong>{page + 1}</strong> ({results.length} hasil)
-                  {searchSource === "openalex" && (
-                    <span> · <strong>{totalItems.toLocaleString("id-ID")}</strong> artikel Open Access</span>
-                  )}
-                  {searchSource === "crossref" && totalFiltered > 0 && (
-                    <span> dari <strong>{totalFiltered}</strong> hasil relevan · <strong>{totalItems.toLocaleString("id-ID")}</strong> tersedia</span>
-                  )}
-                </span>
+              {/* Search info — jumlah artikel, halaman */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground p-3 bg-muted/30 rounded-lg">
+                <span>🔍 {searchInfo}</span>
               </div>
 
               <div className="space-y-4">
@@ -522,11 +493,13 @@ export default function LiteraturePage() {
                   const isSummarizing = summarizing === item.title
                   const saveKey = item.doi ?? `${item.title}_${item.year}`
                   const isSaving = savingMap[saveKey]
-                  const alreadySaved = collection.some((c) => c.judul === item.title || c.doi === item.doi)
-                  const oaResult = isOpenAlexResult(item) ? (item as OpenAlexResult) : null
+                  const alreadySaved = collection.some(
+                    (c) => c.judul === item.title || (c.doi && item.doi && c.doi === item.doi),
+                  )
+                  const hasPdf = !!item.openAccessPdf
 
                   return (
-                    <Card key={item.doi ?? item.title} className="overflow-hidden">
+                    <Card key={item.doi ?? item.title + item.year} className="overflow-hidden">
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between gap-4">
                           <div className="space-y-1">
@@ -539,33 +512,86 @@ export default function LiteraturePage() {
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {item.type && (
-                            <Badge variant="secondary" className="text-xs gap-1">
-                              <span>{getTypeDisplay(item.type).icon}</span>
-                              <span>{getTypeDisplay(item.type).label}</span>
-                            </Badge>
-                          )}
-                          {searchSource === "openalex" && oaResult?.oaStatus && (
-                            <Badge variant="default" className="text-xs bg-green-600 dark:bg-green-700 gap-1">
+                          {/* Type badge */}
+                          <Badge variant="secondary" className="text-xs gap-1">
+                            <span>{getTypeDisplay(item.type).icon}</span>
+                            <span>{getTypeDisplay(item.type).label}</span>
+                          </Badge>
+
+                          {/* OA Status badge */}
+                          {item.oaStatus && (
+                            <Badge
+                              variant="default"
+                              className={cn("text-xs gap-1 text-white", getOAStatusColor(item.oaStatus))}
+                            >
                               <Unlock className="size-3" />
-                              {oaResult.oaStatus}
+                              {getOAStatusLabel(item.oaStatus)}
                             </Badge>
                           )}
-                          {searchSource === "crossref" && (
-                            <Badge variant="outline" className="text-xs">
-                              CrossRef
+
+                          {/* PDF available */}
+                          {hasPdf && (
+                            <Badge variant="outline" className="text-xs border-green-500 text-green-600 dark:text-green-400 gap-1">
+                              <ExternalLink className="size-3" />
+                              PDF Tersedia
+                            </Badge>
+                          )}
+
+                          {/* Citation count */}
+                          {item.citationCount > 0 && (
+                            <Badge variant="outline" className="text-xs gap-1">
+                              📚 {item.citationCount.toLocaleString("id-ID")} sitasi
                             </Badge>
                           )}
                         </div>
                       </CardHeader>
                       <CardContent className="pb-3">
+                        {/* Abstract */}
                         {item.abstract && (
                           <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
                             {item.abstract}
                           </p>
                         )}
 
+                        {/* DOI */}
+                        {item.doi && (
+                          <p className="text-xs text-muted-foreground mb-3 font-mono">
+                            DOI: {item.doi}
+                          </p>
+                        )}
+
+                        {/* Action buttons */}
                         <div className="flex flex-wrap gap-2">
+                          {/* 1. Buka Artikel */}
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleOpenArticle(item)}
+                            className="gap-1.5"
+                          >
+                            <ExternalLink className="size-3.5" />
+                            Buka Artikel
+                          </Button>
+
+                          {/* 2. Simpan ke Koleksi */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSaveToCollection(item)}
+                            disabled={isSaving || alreadySaved}
+                            className="gap-1.5"
+                          >
+                            {isSaving ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Bookmark
+                                className={cn("size-3.5", alreadySaved && "fill-primary text-primary")}
+                              />
+                            )}
+                            {alreadySaved ? "Tersimpan" : "Simpan"}
+                          </Button>
+
+                          {/* 3. Rangkum dengan AI */}
                           <Button
                             variant="outline"
                             size="sm"
@@ -580,55 +606,12 @@ export default function LiteraturePage() {
                             ) : (
                               <Sparkles className="size-3.5" />
                             )}
-                            {isSummarizing ? "Merangkum..." : hasSummary ? "Lihat Rangkuman" : "Rangkum dengan AI"}
+                            {isSummarizing
+                              ? "Merangkum..."
+                              : hasSummary
+                                ? "Lihat Rangkuman"
+                                : "Rangkum dengan AI"}
                           </Button>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSaveToCollection(item)}
-                            disabled={isSaving || alreadySaved}
-                            className="gap-1.5"
-                          >
-                            {isSaving ? (
-                              <Loader2 className="size-3.5 animate-spin" />
-                            ) : (
-                              <Bookmark className={cn("size-3.5", alreadySaved && "fill-primary text-primary")} />
-                            )}
-                            {alreadySaved ? "Tersimpan" : "Simpan"}
-                          </Button>
-
-                          {/* Buka Artikel */}
-                          {oaResult?.openAccessPdf ? (
-                            <a href={oaResult.openAccessPdf} target="_blank" rel="noopener noreferrer">
-                              <Button variant="outline" size="sm" className="gap-1.5">
-                                <ExternalLink className="size-3.5" />
-                                Buka Artikel
-                              </Button>
-                            </a>
-                          ) : item.doi || item.url ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenArticle(item)}
-                              disabled={openingArticle === item.doi}
-                              className="gap-1.5"
-                            >
-                              {openingArticle === item.doi ? (
-                                <Loader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <ExternalLink className="size-3.5" />
-                              )}
-                              {openingArticle === item.doi ? "Membuka..." : "Buka Artikel"}
-                            </Button>
-                          ) : null}
-
-                          {item.doi && (
-                            <span className="text-xs text-muted-foreground self-center ml-auto">
-                              {oaResult?.citationCount ? `📚 ${oaResult.citationCount} sitasi · ` : ""}
-                              DOI: {item.doi}
-                            </span>
-                          )}
                         </div>
 
                         {/* Summary Detail */}
@@ -651,28 +634,53 @@ export default function LiteraturePage() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-4 pt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => search(page - 1)}
-                    disabled={page === 0 || loading}
-                  >
-                    <ChevronLeft className="size-4 mr-1" />
-                    Sebelumnya
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Halaman {page + 1} dari {totalPages}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+                  <span className="text-xs text-muted-foreground order-2 sm:order-1">
+                    Halaman {page + 1} dari {totalPages} · {total.toLocaleString("id-ID")} artikel ditemukan
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => search(page + 1)}
-                    disabled={page >= totalPages - 1 || loading}
-                  >
-                    Selanjutnya
-                    <ChevronRight className="size-4 ml-1" />
-                  </Button>
+                  <div className="flex items-center gap-2 order-1 sm:order-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => search(page - 1)}
+                      disabled={page === 0 || loading}
+                    >
+                      <ChevronLeft className="size-4 mr-1" />
+                      Sebelumnya
+                    </Button>
+
+                    {/* Page numbers */}
+                    <div className="hidden sm:flex items-center gap-1">
+                      {generatePageNumbers(page, totalPages).map((p, i) =>
+                        p === "..." ? (
+                          <span key={`ellipsis-${i}`} className="px-1 text-muted-foreground text-xs">
+                            ...
+                          </span>
+                        ) : (
+                          <Button
+                            key={p}
+                            variant={page === p ? "default" : "outline"}
+                            size="icon"
+                            className="size-8 text-xs"
+                            onClick={() => search(p as number)}
+                            disabled={loading}
+                          >
+                            {(p as number) + 1}
+                          </Button>
+                        ),
+                      )}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => search(page + 1)}
+                      disabled={page >= totalPages - 1 || loading}
+                    >
+                      Selanjutnya
+                      <ChevronRight className="size-4 ml-1" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </>
@@ -685,15 +693,15 @@ export default function LiteraturePage() {
           ) : (
             <div className="text-center py-20 text-muted-foreground">
               <Search className="size-12 mx-auto mb-4 opacity-30" />
-              <p>Cari artikel ilmiah untuk skripsimu</p>
+              <p>Cari artikel ilmiah Open Access untuk skripsimu</p>
               <p className="text-sm mt-1">
-                {searchSource === "openalex" ? "OpenAlex — 250+ juta artikel Open Access" : "CrossRef — akses ke jutaan artikel akademik"}
+                OpenAlex — 250+ juta artikel Open Access dari berbagai disiplin ilmu
               </p>
             </div>
           )}
         </TabsContent>
 
-        {/* ─── TAB: KOLEKSI ─── */}
+        {/* ─── TAB: KOLEKSI SAYA ─── */}
         <TabsContent value="koleksi" className="mt-6 space-y-6">
           {/* Search koleksi */}
           <div className="relative max-w-md">
@@ -707,7 +715,7 @@ export default function LiteraturePage() {
             />
           </div>
 
-          {/* Success message */}
+          {/* Success message convert */}
           {convertSuccess && (
             <div className="p-3 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 text-sm">
               ✅ {convertSuccess}
@@ -756,9 +764,10 @@ export default function LiteraturePage() {
                       <p className="text-sm text-muted-foreground line-clamp-3 mb-3">{item.abstrak}</p>
                     )}
                     <div className="flex flex-wrap gap-2">
+                      {/* Buka Artikel dari koleksi */}
                       {item.link && (
                         <a href={item.link} target="_blank" rel="noopener noreferrer">
-                          <Button variant="outline" size="sm" className="gap-1.5">
+                          <Button variant="default" size="sm" className="gap-1.5">
                             <ExternalLink className="size-3.5" />
                             Buka Artikel
                           </Button>
@@ -766,7 +775,9 @@ export default function LiteraturePage() {
                       )}
 
                       {item.doi && (
-                        <span className="text-xs text-muted-foreground self-center">DOI: {item.doi}</span>
+                        <span className="text-xs text-muted-foreground self-center font-mono">
+                          DOI: {item.doi}
+                        </span>
                       )}
 
                       {/* Jadikan BAB */}
@@ -780,6 +791,7 @@ export default function LiteraturePage() {
                         Jadikan BAB
                       </Button>
 
+                      {/* Hapus */}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -819,7 +831,7 @@ export default function LiteraturePage() {
                       "flex-1 py-2 rounded-lg text-sm font-medium transition-colors",
                       convertBabNumber === num
                         ? "bg-primary text-primary-foreground"
-                        : "bg-muted hover:bg-muted/80"
+                        : "bg-muted hover:bg-muted/80",
                     )}
                   >
                     {num}
@@ -831,15 +843,15 @@ export default function LiteraturePage() {
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 variant="outline"
-                onClick={() => { setConvertToBab(null); setConvertBabNumber(2) }}
+                onClick={() => {
+                  setConvertToBab(null)
+                  setConvertBabNumber(2)
+                }}
                 disabled={converting}
               >
                 Batal
               </Button>
-              <Button
-                onClick={handleConvertToBab}
-                disabled={converting}
-              >
+              <Button onClick={handleConvertToBab} disabled={converting}>
                 {converting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
                 {converting ? "Membuat..." : "Buat Draft"}
               </Button>
@@ -851,12 +863,14 @@ export default function LiteraturePage() {
       {/* Footer note */}
       <div className="text-center pt-4">
         <p className="text-xs text-muted-foreground">
-          Sumber: OpenAlex (OA) · CrossRef · Semantic Scholar · Rangkuman AI · Verifikasi dengan artikel asli.
+          Sumber: OpenAlex · Semantic Scholar · Rangkuman AI · Verifikasi dengan artikel asli.
         </p>
       </div>
     </div>
   )
 }
+
+// ─── Sub-components ───
 
 function SummaryItem({ label, text }: { label: string; text: string }) {
   if (!text || text === "Gagal merangkum") return null
@@ -866,4 +880,38 @@ function SummaryItem({ label, text }: { label: string; text: string }) {
       <p className="text-sm">{text}</p>
     </div>
   )
+}
+
+function generatePageNumbers(
+  current: number,
+  total: number,
+): (number | "...")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i)
+  }
+
+  const pages: (number | "...")[] = []
+
+  // Always show first page
+  pages.push(0)
+
+  if (current > 2) {
+    pages.push("...")
+  }
+
+  // Pages around current
+  const start = Math.max(1, current - 1)
+  const end = Math.min(total - 2, current + 1)
+  for (let i = start; i <= end; i++) {
+    pages.push(i)
+  }
+
+  if (current < total - 3) {
+    pages.push("...")
+  }
+
+  // Always show last page
+  pages.push(total - 1)
+
+  return pages
 }

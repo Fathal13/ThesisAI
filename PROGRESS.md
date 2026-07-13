@@ -94,10 +94,13 @@
 
 ### 3.1 — Search Artikel 🟢 [MVP]
 - [x] Input pencarian (judul/topik/penulis)
-- [x] Integrasi CrossRef API (gratis) — sertakan `mailto` di header untuk pool sopan
-- [x] Tampilkan hasil: judul, penulis, tahun, DOI, link
-- [x] Pagination hasil pencarian
+- [x] **Integrasi OpenAlex API (gratis, unlimited)** — 250+ juta artikel Open Access, filter `type:article` + `open_access.is_oa:true`
+- [x] Tampilkan hasil: judul, penulis, tahun, DOI, link, OA status, sitasi count, PDF URL
+- [x] **Pagination** — page numbers + Previous/Next + total pages & total articles info
+- [x] **Info jumlah artikel** — "Menampilkan X dari Y artikel Open Access (halaman N dari M)"
+- [x] **Filter "Artikel Jurnal Saja"** — toggle on/off (default on)
 - [x] Tangani error/timeout API dengan anggun
+- [x] Sort by tahun terbit descending (terbaru di atas)
 
 ### 3.2 — AI Summarize 🟢 [MVP]
 - [x] Tombol "Rangkum dengan AI" per artikel
@@ -107,10 +110,12 @@
 - [x] Copy rangkuman ke clipboard
 
 ### 3.3 — Literature Collection 🔵 [LATER]
-- [x] Tombol "Simpan ke Koleksi Saya"
+- [x] Tombol "Simpan ke Koleksi Saya" (dedup by DOI/title)
 - [x] Halaman daftar literatur tersimpan (tab Koleksi)
 - [x] Filter & search di koleksi sendiri
 - [x] Hapus dari koleksi
+- [x] **Button "Buka Artikel"** — redirect ke PDF langsung (Open Access) atau landing page
+- [x] **Button "Jadikan BAB"** — convert literatur ke draft BAB writing assistant
 
 ---
 
@@ -444,3 +449,33 @@ TOTAL: ████████████████████████�
 
 **Build & Lint**: 0 errors, 0 warnings ✅
 **Total progress: ~97%** 🚀
+
+---
+
+### 🗓️ Sesi 13 Juli 2026 (Lanjutan) — Literatur Explorer Rewrite (OpenAlex Only)
+
+**✅ Rewrite Literatur Explorer ke OpenAlex Only**
+- **Hapus CrossRef** — sekarang hanya pakai OpenAlex (250+ juta artikel Open Access)
+- **Filter Journal API gratis, tanpa rate limit ketat**
+- **Sumber PDF langsung** — OpenAlex menyediakan `openAccessPdf` URL langsung, tidak perlu enrichment tambahan
+- **Filter "Artikel Jurnal Saja"** — toggle on/off di UI (default on), filter `type:article` di API
+
+**✅ 6 Fitur Utama Sesuai Permintaan:**
+1. **Pencarian spesifik** — AI keyword extraction (2-3 kata kunci) + search OpenAlex
+2. **Pagination jelas** — Page numbers 1-2-3... + Previous/Next + info "Halaman X dari Y · N artikel ditemukan"
+3. **Info jumlah artikel** — `Menampilkan 20 dari 1,234 artikel Open Access (jurnal saja) (halaman 1 dari 62)` di atas hasil
+4. **Button "Buka Artikel"** — Buka PDF langsung (Open Access) atau landing page jika PDF tidak ada
+5. **Button "Simpan"** — Simpan ke "Koleksi Saya" (Supabase, dedup by DOI/title), badge "Tersimpan" saat sudah disimpan
+6. **Button "Rangkum dengan AI"** — Generate: Masalah, Metode, Hasil, Gap + cache per user per artikel (Supabase `summary_cache`)
+
+**✅ UX Improvements:**
+- Info bar hijau: "Mencari di OpenAlex — 250+ juta artikel Open Access dengan akses PDF langsung"
+- Badge hijau "PDF Tersedia" jika artikel punya `openAccessPdf`
+- Badge OA Status (Gold/Green/Hybrid/Bronze) dengan warna khas
+- Badge sitasi count (`📚 123 sitasi`)
+- Loading state per artikel (buka, simpan, rangkum)
+- Page numbers dengan ellipsis untuk halaman banyak
+- Filter toggle "Artikel jurnal saja" / "Semua tipe artikel"
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~98%** 🚀
