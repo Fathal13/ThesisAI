@@ -68,6 +68,12 @@ function isOpenAlexResult(item: SearchResult): item is OpenAlexResult {
   return "openAccessPdf" in item
 }
 
+// Articles with unknown or future years
+const CURRENT_YEAR = new Date().getFullYear()
+function isInvalidYear(year: number | null): boolean {
+  return year === null || year < 1900 || year > CURRENT_YEAR
+}
+
 export default function LiteraturePage() {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResult[]>([])
@@ -92,6 +98,9 @@ export default function LiteraturePage() {
   // Article opening state
   const [openingArticle, setOpeningArticle] = useState<string | null>(null)
 
+  // Toggle for invalid-year articles
+  const [showInvalidYear, setShowInvalidYear] = useState(false)
+
   // Convert to bab state
   const [convertToBab, setConvertToBab] = useState<{ id: string; judul: string } | null>(null)
   const [convertBabNumber, setConvertBabNumber] = useState(2)
@@ -107,6 +116,7 @@ export default function LiteraturePage() {
     setLoading(true)
     setError("")
     setSearched(true)
+    setShowInvalidYear(false) // Reset toggle on new search
 
     try {
       if (searchSource === "openalex") {
@@ -393,7 +403,11 @@ export default function LiteraturePage() {
     if (e.key === "Enter") search(0)
   }
 
-  const totalPages = Math.ceil(totalFiltered / 20)
+  // Compute filtered results for pagination
+  const validResults = results.filter((r) => !isInvalidYear(r.year))
+  const invalidResults = results.filter((r) => isInvalidYear(r.year))
+  const shownResults = showInvalidYear ? results : validResults
+  const totalPages = Math.ceil(shownResults.length / 20)
 
   const filteredCollection = collection.filter((item) => {
     if (!collectionSearch) return true
@@ -515,7 +529,7 @@ export default function LiteraturePage() {
               </div>
 
               <div className="space-y-4">
-                {results.map((item) => {
+                {shownResults.map((item) => {
                   const hasSummary = !!summaries[item.title]
                   const isExpanded = expanded === item.title
                   const isSummarizing = summarizing === item.title
@@ -647,7 +661,6 @@ export default function LiteraturePage() {
                   )
                 })}
               </div>
-
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-4 pt-4">
@@ -673,6 +686,19 @@ export default function LiteraturePage() {
                     <ChevronRight className="size-4 ml-1" />
                   </Button>
                 </div>
+              )}
+
+              {/* Invalid-year toggle */}
+              {invalidResults.length > 0 && (
+                <button
+                  onClick={() => setShowInvalidYear(!showInvalidYear)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showInvalidYear
+                    ? `🕰️ Sembunyikan ${invalidResults.length} artikel dengan tahun tidak valid`
+                    : `🕰️ Tampilkan ${invalidResults.length} artikel dengan tahun tidak diketahui / tidak valid`
+                  }
+                </button>
               )}
             </>
           ) : searched ? (
