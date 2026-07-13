@@ -392,7 +392,9 @@ export default function LiteraturePage() {
     if (e.key === "Enter") search(0)
   }
 
-  const totalPages = Math.ceil(results.length / 20)
+  const totalPages = Math.ceil(
+    (searchSource === "openalex" ? totalItems : totalFiltered) / 20
+  )
 
   const filteredCollection = collection.filter((item) => {
     if (!collectionSearch) return true
