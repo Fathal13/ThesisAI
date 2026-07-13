@@ -27,6 +27,7 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists set_enrichment_cache_updated_at on enrichment_cache;
 create trigger set_enrichment_cache_updated_at
   before update on enrichment_cache
   for each row
@@ -35,11 +36,14 @@ create trigger set_enrichment_cache_updated_at
 -- RLS: user hanya bisa lihat & edit enrichment mereka sendiri
 alter table enrichment_cache enable row level security;
 
+drop policy if exists "individuals_can_select_own" on enrichment_cache;
 create policy "individuals_can_select_own" on enrichment_cache
   for select using (auth.uid() = user_id);
 
+drop policy if exists "individuals_can_insert_own" on enrichment_cache;
 create policy "individuals_can_insert_own" on enrichment_cache
   for insert with check (auth.uid() = user_id);
 
+drop policy if exists "individuals_can_update_own" on enrichment_cache;
 create policy "individuals_can_update_own" on enrichment_cache
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
