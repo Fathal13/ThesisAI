@@ -180,7 +180,8 @@ export default function LiteraturePage() {
   }, [activeTab])
 
   async function handleSaveToCollection(item: SearchResult) {
-    setSavingMap((prev) => ({ ...prev, [item.title]: true }))
+    const saveKey = item.doi ?? `${item.title}_${item.year}`
+    setSavingMap((prev) => ({ ...prev, [saveKey]: true }))
     try {
       await fetch("/api/literature/save", {
         method: "POST",
@@ -197,7 +198,7 @@ export default function LiteraturePage() {
     } catch {
       // silent
     } finally {
-      setSavingMap((prev) => ({ ...prev, [item.title]: false }))
+      setSavingMap((prev) => ({ ...prev, [saveKey]: false }))
       fetchCollection()
     }
   }
@@ -518,7 +519,8 @@ export default function LiteraturePage() {
                   const hasSummary = !!summaries[item.title]
                   const isExpanded = expanded === item.title
                   const isSummarizing = summarizing === item.title
-                  const isSaving = savingMap[item.title]
+                  const saveKey = item.doi ?? `${item.title}_${item.year}`
+                  const isSaving = savingMap[saveKey]
                   const alreadySaved = collection.some((c) => c.judul === item.title || c.doi === item.doi)
                   const oaResult = isOpenAlexResult(item) ? (item as OpenAlexResult) : null
 
@@ -596,7 +598,14 @@ export default function LiteraturePage() {
                           </Button>
 
                           {/* Buka Artikel */}
-                          {(oaResult?.openAccessPdf || item.doi) ? (
+                          {oaResult?.openAccessPdf ? (
+                            <a href={oaResult.openAccessPdf} target="_blank" rel="noopener noreferrer">
+                              <Button variant="outline" size="sm" className="gap-1.5">
+                                <ExternalLink className="size-3.5" />
+                                Buka Artikel
+                              </Button>
+                            </a>
+                          ) : item.doi || item.url ? (
                             <Button
                               variant="outline"
                               size="sm"
@@ -611,26 +620,7 @@ export default function LiteraturePage() {
                               )}
                               {openingArticle === item.doi ? "Membuka..." : "Buka Artikel"}
                             </Button>
-                          ) : item.url ? (
-                            <a href={item.url} target="_blank" rel="noopener noreferrer">
-                              <Button variant="outline" size="sm" className="gap-1.5">
-                                <ExternalLink className="size-3.5" />
-                                Buka Artikel
-                              </Button>
-                            </a>
                           ) : null}
-
-                          {/* OA PDF link langsung (OpenAlex) */}
-                          {oaResult?.openAccessPdf && (
-                            <a
-                              href={oaResult.openAccessPdf}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 hover:underline self-center"
-                            >
-                              📄 PDF
-                            </a>
-                          )}
 
                           {item.doi && (
                             <span className="text-xs text-muted-foreground self-center ml-auto">

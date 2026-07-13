@@ -4,6 +4,15 @@
  * Rate limit: 100 req/s (no key needed)
  */
 
+const CURRENT_YEAR = new Date().getFullYear()
+const MIN_VALID_YEAR = 1900
+
+function isValidYear(year: number | null): number | null {
+  if (!year) return null
+  if (year < MIN_VALID_YEAR || year > CURRENT_YEAR + 1) return null // +1 untuk preprint tahun depan
+  return year
+}
+
 export interface OpenAlexResult {
   doi: string | null
   title: string
@@ -112,7 +121,7 @@ export async function searchOpenAlex(
           ?.map((a) => a.author.display_name)
           .join(", ")
           .slice(0, 500) ?? "Unknown",
-      year: item.publication_year,
+      year: isValidYear(item.publication_year),
       source:
         item.primary_location?.source?.display_name ??
         item.best_oa_location?.source?.display_name ??
@@ -166,7 +175,7 @@ export async function getOpenAlexByDoi(doi: string): Promise<OpenAlexResult | nu
           ?.map((a) => a.author.display_name)
           .join(", ")
           .slice(0, 500) ?? "Unknown",
-      year: data.publication_year,
+      year: isValidYear(data.publication_year),
       source:
         data.primary_location?.source?.display_name ??
         data.best_oa_location?.source?.display_name ??

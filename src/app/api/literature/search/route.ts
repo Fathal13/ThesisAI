@@ -164,19 +164,25 @@ export async function GET(req: Request) {
       const totalItems = data.message?.["total-items"] ?? 0
 
       // Transform
+      const CURRENT_YEAR = new Date().getFullYear()
       let results: LiteratureResult[] = items
-        .map((item: CrossRefItem) => ({
-          doi: item.DOI ?? null,
-          title: item.title?.[0] ?? "No title",
-          author: item.author
-            ? item.author.map((a) => `${a.given ?? ""} ${a.family ?? ""}`.trim()).join(", ")
-            : "Unknown",
-          year: item.published?.["date-parts"]?.[0]?.[0] ?? null,
-          source: item.publisher ?? item["container-title"]?.[0] ?? "",
-          url: item.URL ?? (item.DOI ? `https://doi.org/${item.DOI}` : ""),
-          abstract: item.abstract ?? null,
-          type: item.type ?? "article",
-        }))
+        .map((item: CrossRefItem) => {
+          const rawYear = item.published?.["date-parts"]?.[0]?.[0] ?? null
+          // Filter tahun invalid (2030, 2050, dll)
+          const year = (rawYear && rawYear >= 1900 && rawYear <= CURRENT_YEAR + 1) ? rawYear : null
+          return {
+            doi: item.DOI ?? null,
+            title: item.title?.[0] ?? "No title",
+            author: item.author
+              ? item.author.map((a) => `${a.given ?? ""} ${a.family ?? ""}`.trim()).join(", ")
+              : "Unknown",
+            year,
+            source: item.publisher ?? item["container-title"]?.[0] ?? "",
+            url: item.URL ?? (item.DOI ? `https://doi.org/${item.DOI}` : ""),
+            abstract: item.abstract ?? null,
+            type: item.type ?? "article",
+          }
+        })
         .filter((item) => item.title !== "No title")
 
       results = deduplicateResults(results)
