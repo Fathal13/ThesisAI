@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2, CheckCircle2 } from "lucide-react"
+import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,23 +20,6 @@ interface LiteratureResult {
   url: string
   abstract: string | null
   type: string
-}
-
-// Enrichment data from Semantic Scholar / Unpaywall
-interface EnrichmentData {
-  doi: string
-  title: string
-  abstract: string | null
-  openAccessPdf: { url: string; status: string } | null
-  tldr: { text: string; model: string } | null
-  citationCount: number
-  influentialCitationCount: number
-  source: "semantic-scholar" | "unpaywall" | "semantic-scholar+unpaywall" | null
-  year: number | null
-  authors: string[]
-  venue: string | null
-  url: string | null
-  found: boolean
 }
 
 interface CollectionItem {
@@ -91,9 +74,8 @@ export default function LiteraturePage() {
   const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
   const [collectionSearch, setCollectionSearch] = useState("")
   const [activeTab, setActiveTab] = useState("cari")
-  // Enrichment state
-  const [enriching, setEnriching] = useState<string | null>(null)
-  const [enrichments, setEnrichments] = useState<Record<string, EnrichmentData>>({})
+  // Article opening state (fetch enrichment, then redirect or alert)
+  const [openingArticle, setOpeningArticle] = useState<string | null>(null)
 
   const search = useCallback(async (pageNum = 0) => {
     if (!query || query.length < 3) {
@@ -234,21 +216,19 @@ export default function LiteraturePage() {
     }
   }
 
-  async function handleEnrich(item: LiteratureResult) {
-    if (!item.doi) return
-
-    // Toggle kalau sudah di-enrich sebelumnya
-    const existing = enrichments[item.doi]
-    if (existing) {
-      // Kalau sudah ada data tapi found=false, coba fetch ulang
-      if (!existing.found) {
-        // continue to fetch
-      } else {
-        return // show badge info di UI tanpa loading ulang
+  async function handleOpenArticle(item: LiteratureResult) {
+    if (!item.doi) {
+      // Fallback: redirect ke DOI atau URL
+      if (item.url) {
+        window.open(item.url, "_blank", "noopener,noreferrer")
+        return
       }
+      alert("Artikel ini tidak memiliki DOI atau URL untuk diakses.")
+      return
     }
 
-    setEnriching(item.doi)
+    setOpeningArticle(item.doi)
+    setError("")
 
     try {
       const res = await fetch("/api/literature/enrich", {
@@ -264,16 +244,32 @@ export default function LiteraturePage() {
       const data = await res.json()
 
       if (!res.ok) {
-        console.error("[Enrich] Failed:", data.error)
+        alert("Gagal mengambil informasi artikel. Coba lagi nanti.")
         return
       }
 
-      // Simpan data tapi jangan set kalau found=false (soalnya panel akan kosong)
-      setEnrichments((prev) => ({ ...prev, [item.doi!]: data }))
+      const pdfUrl = data?.openAccessPdf?.url
+      if (pdfUrl) {
+        // Buka PDF di tab baru
+        window.open(pdfUrl, "_blank", "noopener,noreferrer")
+      } else {
+        const landingUrl = data?.url || item.url || `https://doi.org/${item.doi}`
+        if (landingUrl) {
+          // ada landing page, tawarkan dua opsi
+          const wantOpen = confirm(
+            `Artikel ini tidak memiliki akses Open Access yang tersedia.\n\nApakah kamu ingin membuka halaman artikel di ${landingUrl}?`
+          )
+          if (wantOpen) {
+            window.open(landingUrl, "_blank", "noopener,noreferrer")
+          }
+        } else {
+          alert("Artikel ini tidak dapat diakses secara Open Access. Coba cari di repository universitas atau Google Scholar.")
+        }
+      }
     } catch {
-      setError("Gagal mengambil detail artikel. Coba lagi.")
+      alert("Gagal mengambil informasi artikel. Coba lagi nanti.")
     } finally {
-      setEnriching(null)
+      setOpeningArticle(null)
     }
   }
 
@@ -442,27 +438,21 @@ export default function LiteraturePage() {
                             {alreadySaved ? "Tersimpan" : "Simpan"}
                           </Button>
 
-                          {/* Enrichment button */}
+                          {/* Buka Artikel button — langsung fetch enrichment & redirect PDF */}
                           {item.doi ? (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleEnrich(item)}
-                              disabled={enriching === item.doi}
+                              onClick={() => handleOpenArticle(item)}
+                              disabled={openingArticle === item.doi}
                               className="gap-1.5"
                             >
-                              {enriching === item.doi ? (
+                              {openingArticle === item.doi ? (
                                 <Loader2 className="size-3.5 animate-spin" />
-                              ) : enrichments[item.doi] ? (
-                                <CheckCircle2 className="size-3.5 text-green-600" />
                               ) : (
                                 <ExternalLink className="size-3.5" />
                               )}
-                              {enriching === item.doi
-                                ? "Mengecek..."
-                                : enrichments[item.doi]
-                                  ? "Lihat Detail"
-                                  : "Buka Artikel"}
+                              {openingArticle === item.doi ? "Membuka..." : "Buka Artikel"}
                             </Button>
                           ) : item.url ? (
                             <a href={item.url} target="_blank" rel="noopener noreferrer">
@@ -471,7 +461,12 @@ export default function LiteraturePage() {
                                 Buka Artikel
                               </Button>
                             </a>
-                          ) : null}
+                          ) : (
+                            <Button variant="outline" size="sm" disabled className="gap-1.5 text-muted-foreground">
+                              <ExternalLink className="size-3.5" />
+                              Tidak Tersedia
+                            </Button>
+                          )}
 
                           {item.doi && (
                             <span className="text-xs text-muted-foreground self-center ml-auto">
@@ -479,64 +474,6 @@ export default function LiteraturePage() {
                             </span>
                           )}
                         </div>
-
-                        {/* Enrichment Detail Panel — hanya tampil kalau data ditemukan */}
-                        {item.doi && enrichments[item.doi]?.found && (
-                          <>
-                            <Separator className="my-4" />
-                            <div className="space-y-3 text-sm">
-                              {/* Badge OA & Citation */}
-                              <div className="flex flex-wrap items-center gap-3">
-                                {enrichments[item.doi].openAccessPdf?.url ? (
-                                  <a
-                                    href={enrichments[item.doi].openAccessPdf!.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                                  >
-                                    <ExternalLink className="size-3" />
-                                    Open Access ({enrichments[item.doi].openAccessPdf!.status})
-                                  </a>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs text-muted-foreground dark:bg-gray-800">
-                                    🔒 Tidak Open Access
-                                  </span>
-                                )}
-                                {enrichments[item.doi].citationCount > 0 && (
-                                  <span className="text-xs text-muted-foreground" title="Dikutip oleh">
-                                    📚 {enrichments[item.doi].citationCount.toLocaleString("id-ID")} sitasi
-                                  </span>
-                                )}
-                                {enrichments[item.doi].tldr && (
-                                  <span className="text-xs text-muted-foreground">
-                                    🤖 TLDR dari Semantic Scholar
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* TLDR */}
-                              {enrichments[item.doi].tldr?.text && (
-                                <div className="rounded-lg bg-muted/50 p-3 text-sm italic text-muted-foreground">
-                                  <span className="not-italic font-medium text-xs block mb-1">🤖 TLDR:</span>
-                                  {enrichments[item.doi].tldr!.text}
-                                </div>
-                              )}
-
-                              {/* Landing page link */}
-                              {enrichments[item.doi].url && (
-                                <a
-                                  href={enrichments[item.doi].url!}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                                >
-                                  <ExternalLink className="size-3" />
-                                  Buka halaman artikel →
-                                </a>
-                              )}
-                            </div>
-                          </>
-                        )}
 
                         {/* Summary Detail */}
                         {isExpanded && hasSummary && (
