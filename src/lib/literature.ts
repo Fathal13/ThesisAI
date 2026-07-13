@@ -153,22 +153,32 @@ export async function enrichPaper(doi: string): Promise<EnrichedPaper | null> {
   if (!doi) return null
 
   // 1. Try Semantic Scholar first (better metadata + TLDR)
-  let result = await enrichViaSemanticScholar(doi)
+  let result: EnrichedPaper | null = null
+  try {
+    result = await enrichViaSemanticScholar(doi)
+  } catch (err) {
+    // Rate limit (429) atau error lain → lanjut ke Unpaywall
+    console.warn(`[Enrich] Semantic Scholar error for ${doi}, trying Unpaywall:`, err)
+  }
 
   // 2. Kalau Semantic Scholar tidak punya OA PDF, coba Unpaywall
   if (!result?.openAccessPdf?.url) {
-    const unpaywallResult = await enrichViaUnpaywall(doi)
-    if (unpaywallResult?.openAccessPdf?.url) {
-      // Merge: gunakan metadata dari SS (kalau ada) + PDF dari Unpaywall
-      if (result) {
-        result = {
-          ...result,
-          openAccessPdf: unpaywallResult.openAccessPdf,
-          source: "semantic-scholar+unpaywall",
+    try {
+      const unpaywallResult = await enrichViaUnpaywall(doi)
+      if (unpaywallResult?.openAccessPdf?.url) {
+        // Merge: gunakan metadata dari SS (kalau ada) + PDF dari Unpaywall
+        if (result) {
+          result = {
+            ...result,
+            openAccessPdf: unpaywallResult.openAccessPdf,
+            source: "semantic-scholar+unpaywall",
+          }
+        } else {
+          result = unpaywallResult
         }
-      } else {
-        result = unpaywallResult
       }
+    } catch (err) {
+      console.warn(`[Enrich] Unpaywall failed for ${doi}:`, err)
     }
   }
 
