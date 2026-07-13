@@ -66,7 +66,10 @@ function getTypeDisplay(type: string): { icon: string; label: string } {
 // Year validation
 const CURRENT_YEAR = new Date().getFullYear()
 function isInvalidYear(year: number | null): boolean {
-  return year === null || year < 1900 || year > CURRENT_YEAR
+  // null = tahun tidak diketahui → valid (tetap tampil)
+  if (year === null) return false
+  // Tahun sebelum 1900 atau setelah tahun depan → invalid
+  return year < 1900 || year > CURRENT_YEAR + 1
 }
 
 function isOpenAlexResult(item: SearchResult): item is OpenAlexResult {
