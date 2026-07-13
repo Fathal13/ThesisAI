@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server"
 import { searchOpenAlex } from "@/lib/openalex"
 
+// ─── Fetch Configuration ───
+// OpenAlex max per-page = 200, max page = 50
+// Kita ambil beberapa halaman pertama (paling relevan) sekaligus via parallel fetch
+const MAX_CACHE_FETCH_PAGES = 3 // ambil 3 halaman × 200 = 600 artikel
+const MAX_CACHE_SIZE = MAX_CACHE_FETCH_PAGES * 200
+
 // ─── Relevance Scoring ───
 // Skor = berapa banyak token signifikan dari query yang muncul di title (bobot 10) + abstract (bobot 5)
 // Token adalah kata individual ≥ 3 karakter, tanpa stop words
@@ -52,7 +58,6 @@ function computeRelevanceScore(
 
     if (inTitle) {
       tokenScore += 10
-      // Bonus jika token ada di awal judul (biasanya lebih signifikan)
       if (titleLower.startsWith(token) || titleLower.startsWith(token + " ")) {
         tokenScore += 3
       }
@@ -67,8 +72,6 @@ function computeRelevanceScore(
     }
   }
 
-  // Normalisasi agar skor maksimal query panjang tidak mendominasi
-  // Skor final = (total / (tokens.length * 15)) * 100 — persentase
   const maxPossible = tokens.length * 15
   const normalizedScore = Math.round((score / maxPossible) * 100)
 
@@ -76,12 +79,12 @@ function computeRelevanceScore(
 }
 
 // ─── In-memory search cache ───
-// Hash(query + journalOnly) → { results, total, _ts }
+// Hash(query + journalOnly) → { results, totalRaw, _ts }
 // Cache TTL 10 menit, cleanup tiap 5 menit.
 
 interface CacheEntry {
   results: ScoredResult[]
-  total: number
+  totalRaw: number
   _ts: number
 }
 
@@ -103,13 +106,52 @@ function makeCacheKey(query: string, journalOnly: boolean): string {
   return `${query.toLowerCase().trim()}|${journalOnly}`
 }
 
+/**
+ * Fetch multiple pages from OpenAlex in parallel untuk memperbanyak pool artikel.
+ * Halaman 0 = paling relevan, halaman 1+ = relevan tapi sedikit menurun.
+ * Dengan multi-page, hasil scoring bisa mengambil artikel relevan yang lolos di halaman belakang.
+ * OpenAlex max: 50 page × 200 per-page = 10.000 results per query.
+ */
+async function fetchMultiPageOpenAlex(
+  query: string,
+  journalOnly: boolean,
+  totalPages: number,
+): Promise<{ results: OpenAlexRawResult[]; total: number }> {
+  const pagePromises = Array.from({ length: totalPages }, (_, i) =>
+    searchOpenAlex(query, i, 200, journalOnly).catch(() => null),
+  )
+
+  const pages = await Promise.all(pagePromises)
+
+  const seen = new Set<string>()
+  const combined: OpenAlexRawResult[] = []
+  let totalRaw = 0
+
+  for (const page of pages) {
+    if (!page) continue
+    totalRaw = page.total
+
+    for (const item of page.results) {
+      const key = item.doi ?? item.title
+      if (!seen.has(key)) {
+        seen.add(key)
+        combined.push(item)
+      }
+    }
+
+    if (combined.length >= MAX_CACHE_SIZE) break
+  }
+
+  return { results: combined, total: totalRaw }
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const query = searchParams.get("q")
   const page = Number(searchParams.get("page")) || 0
   const perPage = Number(searchParams.get("perPage")) || 20
   const journalOnly = searchParams.get("journalOnly") === "true"
-  const minScore = Number(searchParams.get("minScore")) || 20 // default: minimal skor 20%
+  const minScore = Number(searchParams.get("minScore")) || 15
 
   if (!query || query.length < 3) {
     return NextResponse.json({ error: "Minimal 3 karakter" }, { status: 400 })
@@ -121,8 +163,9 @@ export async function GET(req: Request) {
 
     // Refresh cache hanya saat page 0 (pencarian baru)
     if (!cached || page === 0) {
-      console.log(`[OpenAlex] Fetching 200 articles for "${query}"`)
-      const { results, total } = await searchOpenAlex(query, 0, 200, journalOnly)
+      console.log(`[OpenAlex] Fetching ${MAX_CACHE_FETCH_PAGES} pages (${MAX_CACHE_SIZE} max) for "${query}"`)
+
+      const { results, total } = await fetchMultiPageOpenAlex(query, journalOnly, MAX_CACHE_FETCH_PAGES)
 
       // Score setiap hasil berdasarkan overlap token dengan query
       const scored = results.map((item) => computeRelevanceScore(item, query))
@@ -134,7 +177,7 @@ export async function GET(req: Request) {
         return (b.year ?? 0) - (a.year ?? 0)
       })
 
-      SEARCH_CACHE.set(cacheKey, { results: scored, total, _ts: Date.now() })
+      SEARCH_CACHE.set(cacheKey, { results: scored, totalRaw: total, _ts: Date.now() })
       cached = SEARCH_CACHE.get(cacheKey)!
     }
 
@@ -145,7 +188,7 @@ export async function GET(req: Request) {
       ? allResults.filter((r) => r._relevanceScore >= minScore)
       : allResults
 
-    const totalApi = cached.total
+    const totalRaw = cached.totalRaw
     const filteredTotal = filtered.length
     const totalPages = Math.ceil(filteredTotal / perPage)
     const startIdx = page * perPage
@@ -155,7 +198,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       results: pageResults,
       total: filteredTotal,
-      totalApi,
+      totalRaw,
       totalPages,
       page,
       perPage,
