@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2 } from "lucide-react"
+import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,6 +20,23 @@ interface LiteratureResult {
   url: string
   abstract: string | null
   type: string
+}
+
+// Enrichment data from Semantic Scholar / Unpaywall
+interface EnrichmentData {
+  doi: string
+  title: string
+  abstract: string | null
+  openAccessPdf: { url: string; status: string } | null
+  tldr: { text: string; model: string } | null
+  citationCount: number
+  influentialCitationCount: number
+  source: "semantic-scholar" | "unpaywall" | "semantic-scholar+unpaywall" | null
+  year: number | null
+  authors: string[]
+  venue: string | null
+  url: string | null
+  found: boolean
 }
 
 interface CollectionItem {
@@ -74,6 +91,9 @@ export default function LiteraturePage() {
   const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
   const [collectionSearch, setCollectionSearch] = useState("")
   const [activeTab, setActiveTab] = useState("cari")
+  // Enrichment state
+  const [enriching, setEnriching] = useState<string | null>(null)
+  const [enrichments, setEnrichments] = useState<Record<string, EnrichmentData>>({})
 
   const search = useCallback(async (pageNum = 0) => {
     if (!query || query.length < 3) {
@@ -211,6 +231,42 @@ export default function LiteraturePage() {
       setError("Gagal merangkum. Coba lagi.")
     } finally {
       setSummarizing(null)
+    }
+  }
+
+  async function handleEnrich(item: LiteratureResult) {
+    if (!item.doi) return
+
+    // Toggle kalau sudah di-enrich sebelumnya
+    if (enrichments[item.doi]) {
+      return // show badge info di UI tanpa loading ulang
+    }
+
+    setEnriching(item.doi)
+
+    try {
+      const res = await fetch("/api/literature/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          doi: item.doi,
+          title: item.title,
+          abstract: item.abstract,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        console.error("[Enrich] Failed:", data.error)
+        return
+      }
+
+      setEnrichments((prev) => ({ ...prev, [item.doi!]: data }))
+    } catch {
+      setEnrichError("Gagal mengambil detail. Coba lagi.")
+    } finally {
+      setEnriching(null)
     }
   }
 
@@ -379,14 +435,36 @@ export default function LiteraturePage() {
                             {alreadySaved ? "Tersimpan" : "Simpan"}
                           </Button>
 
-                          {item.url && (
+                          {/* Enrichment button */}
+                          {item.doi ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEnrich(item)}
+                              disabled={enriching === item.doi}
+                              className="gap-1.5"
+                            >
+                              {enriching === item.doi ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : enrichments[item.doi] ? (
+                                <CheckCircle2 className="size-3.5 text-green-600" />
+                              ) : (
+                                <ExternalLink className="size-3.5" />
+                              )}
+                              {enriching === item.doi
+                                ? "Mengecek..."
+                                : enrichments[item.doi]
+                                  ? "Lihat Detail"
+                                  : "Buka Artikel"}
+                            </Button>
+                          ) : item.url ? (
                             <a href={item.url} target="_blank" rel="noopener noreferrer">
                               <Button variant="ghost" size="sm" className="gap-1.5">
                                 <ExternalLink className="size-3.5" />
                                 Buka Artikel
                               </Button>
                             </a>
-                          )}
+                          ) : null}
 
                           {item.doi && (
                             <span className="text-xs text-muted-foreground self-center ml-auto">
@@ -394,6 +472,64 @@ export default function LiteraturePage() {
                             </span>
                           )}
                         </div>
+
+                        {/* Enrichment Detail Panel */}
+                        {item.doi && enrichments[item.doi] && (
+                          <>
+                            <Separator className="my-4" />
+                            <div className="space-y-3 text-sm">
+                              {/* Badge OA & Citation */}
+                              <div className="flex flex-wrap items-center gap-3">
+                                {enrichments[item.doi].openAccessPdf?.url ? (
+                                  <a
+                                    href={enrichments[item.doi].openAccessPdf!.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                                  >
+                                    <ExternalLink className="size-3" />
+                                    Open Access ({enrichments[item.doi].openAccessPdf!.status})
+                                  </a>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs text-muted-foreground dark:bg-gray-800">
+                                    🔒 Tidak Open Access
+                                  </span>
+                                )}
+                                {enrichments[item.doi].citationCount > 0 && (
+                                  <span className="text-xs text-muted-foreground" title="Dikutip oleh">
+                                    📚 {enrichments[item.doi].citationCount.toLocaleString("id-ID")} sitasi
+                                  </span>
+                                )}
+                                {enrichments[item.doi].tldr && (
+                                  <span className="text-xs text-muted-foreground">
+                                    🤖 TLDR dari Semantic Scholar
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* TLDR */}
+                              {enrichments[item.doi].tldr?.text && (
+                                <div className="rounded-lg bg-muted/50 p-3 text-sm italic text-muted-foreground">
+                                  <span className="not-italic font-medium text-xs block mb-1">🤖 TLDR:</span>
+                                  {enrichments[item.doi].tldr!.text}
+                                </div>
+                              )}
+
+                              {/* Landing page link */}
+                              {enrichments[item.doi].url && (
+                                <a
+                                  href={enrichments[item.doi].url!}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                                >
+                                  <ExternalLink className="size-3" />
+                                  Buka halaman artikel →
+                                </a>
+                              )}
+                            </div>
+                          </>
+                        )}
 
                         {/* Summary Detail */}
                         {isExpanded && hasSummary && (
