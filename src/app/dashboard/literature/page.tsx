@@ -264,7 +264,7 @@ export default function LiteraturePage() {
 
       setEnrichments((prev) => ({ ...prev, [item.doi!]: data }))
     } catch {
-      setEnrichError("Gagal mengambil detail. Coba lagi.")
+      setError("Gagal mengambil detail artikel. Coba lagi.")
     } finally {
       setEnriching(null)
     }
