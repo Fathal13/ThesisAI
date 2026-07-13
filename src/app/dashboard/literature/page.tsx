@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2, Unlock, Lock, PenLine, ChevronDown } from "lucide-react"
+import { Search, BookOpen, Loader2, ExternalLink, FileText, Sparkles, ChevronLeft, ChevronRight, Bookmark, Trash2, Unlock, Lock, PenLine } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -63,182 +63,8 @@ function getTypeDisplay(type: string): { icon: string; label: string } {
   return TYPE_ICONS[type] ?? { icon: "📄", label: type.replace("-", " ") }
 }
 
-// Year validation
-const CURRENT_YEAR = new Date().getFullYear()
-function isInvalidYear(year: number | null): boolean {
-  // null = tahun tidak diketahui → valid (tetap tampil)
-  if (year === null) return false
-  // Tahun sebelum 1900 atau setelah tahun depan → invalid
-  return year < 1900 || year > CURRENT_YEAR + 1
-}
-
 function isOpenAlexResult(item: SearchResult): item is OpenAlexResult {
   return "openAccessPdf" in item
-}
-
-// Article Card Component
-interface ArticleCardProps {
-  item: SearchResult
-  hasSummary: boolean
-  isExpanded: boolean
-  isSummarizing: boolean
-  isSaving: boolean
-  alreadySaved: boolean
-  oaResult: OpenAlexResult | null
-  onSummarize: () => void
-  onSave: () => void
-  onOpen: () => void
-  openingArticle: string | null
-  searchSource: "openalex" | "crossref"
-  isInvalidYear?: boolean
-}
-
-function ArticleCard({
-  item,
-  hasSummary,
-  isExpanded,
-  isSummarizing,
-  isSaving,
-  alreadySaved,
-  oaResult,
-  onSummarize,
-  onSave,
-  onOpen,
-  openingArticle,
-  searchSource,
-  isInvalidYear = false,
-}: ArticleCardProps) {
-
-  return (
-    <Card key={item.doi ?? item.title} className={cn("overflow-hidden", isInvalidYear && "opacity-60 border-dashed")}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <CardTitle className="text-base leading-snug">{item.title}</CardTitle>
-            <CardDescription>
-              {item.author} · {item.year ?? "Tahun tidak diketahui"}
-              {isInvalidYear && <span className="ml-2 text-xs text-destructive font-medium">⚠️ Tahun tidak valid</span>}
-            </CardDescription>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {item.type && (
-            <Badge variant="secondary" className="text-xs gap-1">
-              <span>{getTypeDisplay(item.type).icon}</span>
-              <span>{getTypeDisplay(item.type).label}</span>
-            </Badge>
-          )}
-          {searchSource === "openalex" && oaResult?.oaStatus && (
-            <Badge variant="default" className="text-xs bg-green-600 dark:bg-green-700 gap-1">
-              <Unlock className="size-3" />
-              {oaResult.oaStatus}
-            </Badge>
-          )}
-          {searchSource === "crossref" && (
-            <Badge variant="outline" className="text-xs">
-              CrossRef
-            </Badge>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="pb-3">
-        {item.abstract && (
-          <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
-            {item.abstract}
-          </p>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onSummarize}
-            disabled={isSummarizing}
-            className="gap-1.5"
-          >
-            {isSummarizing ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : hasSummary ? (
-              <FileText className="size-3.5" />
-            ) : (
-              <Sparkles className="size-3.5" />
-            )}
-            {isSummarizing ? "Merangkum..." : hasSummary ? "Lihat Rangkuman" : "Rangkum dengan AI"}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onSave}
-            disabled={isSaving || alreadySaved}
-            className="gap-1.5"
-          >
-            {isSaving ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Bookmark className={cn("size-3.5", alreadySaved && "fill-primary text-primary")} />
-            )}
-            {alreadySaved ? "Tersimpan" : "Simpan"}
-          </Button>
-
-          {/* Buka Artikel */}
-          {oaResult?.openAccessPdf ? (
-            <a href={oaResult.openAccessPdf} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <ExternalLink className="size-3.5" />
-                Buka Artikel
-              </Button>
-            </a>
-          ) : item.doi || item.url ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpen}
-              disabled={openingArticle === item.doi}
-              className="gap-1.5"
-            >
-              {openingArticle === item.doi ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <ExternalLink className="size-3.5" />
-              )}
-              {openingArticle === item.doi ? "Membuka..." : "Buka Artikel"}
-            </Button>
-          ) : null}
-
-          {item.doi && (
-            <span className="text-xs text-muted-foreground self-center ml-auto">
-              {oaResult?.citationCount ? `📚 ${oaResult.citationCount} sitasi · ` : ""}
-              DOI: {item.doi}
-            </span>
-          )}
-        </div>
-
-        {/* Summary Detail */}
-        {isExpanded && hasSummary && (
-          <>
-            <Separator className="my-4" />
-            <div className="grid gap-3 text-sm">
-              <SummaryItem label="🎯 Masalah" text={""} />
-              <SummaryItem label="🔧 Metode" text={""} />
-              <SummaryItem label="📊 Hasil" text={""} />
-              <SummaryItem label="🕳️ Gap" text={""} />
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function SummaryItem({ label, text }: { label: string; text: string }) {
-  if (!text || text === "Gagal merangkum") return null
-  return (
-    <div>
-      <p className="font-medium text-xs text-muted-foreground mb-0.5">{label}</p>
-      <p className="text-sm">{text}</p>
-    </div>
-  )
 }
 
 export default function LiteraturePage() {
@@ -265,9 +91,6 @@ export default function LiteraturePage() {
   // Article opening state
   const [openingArticle, setOpeningArticle] = useState<string | null>(null)
 
-  // Toggle for invalid-year articles
-  const [showInvalidYear, setShowInvalidYear] = useState(false)
-
   // Convert to bab state
   const [convertToBab, setConvertToBab] = useState<{ id: string; judul: string } | null>(null)
   const [convertBabNumber, setConvertBabNumber] = useState(2)
@@ -283,7 +106,6 @@ export default function LiteraturePage() {
     setLoading(true)
     setError("")
     setSearched(true)
-    setShowInvalidYear(false) // Reset toggle on new search
 
     try {
       if (searchSource === "openalex") {
@@ -692,74 +514,137 @@ export default function LiteraturePage() {
               </div>
 
               <div className="space-y-4">
-                {/* ─── VALID YEAR ARTICLES ─── */}
-                {results
-                  .filter((item) => !isInvalidYear(item.year))
-                  .map((item) => (
-                    <ArticleCard
-                      key={item.doi ?? item.title}
-                      item={item}
-                      hasSummary={!!summaries[item.title]}
-                      isExpanded={expanded === item.title}
-                      isSummarizing={summarizing === item.title}
-                      isSaving={savingMap[item.doi ?? `${item.title}_${item.year}`]}
-                      alreadySaved={collection.some((c) => c.judul === item.title || c.doi === item.doi)}
-                      oaResult={isOpenAlexResult(item) ? (item as OpenAlexResult) : null}
-                      onSummarize={() => handleSummarize(item)}
-                      onSave={() => handleSaveToCollection(item)}
-                      onOpen={() => handleOpenArticle(item)}
-                      openingArticle={openingArticle}
-                      searchSource={searchSource}
-                    />
-                  ))}
-
-                {/* ─── INVALID YEAR ARTICLES (Collapsible) ─── */}
-                {(() => {
-                  const invalidArticles = results.filter((item) => isInvalidYear(item.year))
-                  if (invalidArticles.length === 0) return null
+                {results.map((item) => {
+                  const hasSummary = !!summaries[item.title]
+                  const isExpanded = expanded === item.title
+                  const isSummarizing = summarizing === item.title
+                  const saveKey = item.doi ?? `${item.title}_${item.year}`
+                  const isSaving = savingMap[saveKey]
+                  const alreadySaved = collection.some((c) => c.judul === item.title || c.doi === item.doi)
+                  const oaResult = isOpenAlexResult(item) ? (item as OpenAlexResult) : null
 
                   return (
-                    <div className="border-t border-dashed my-4 pt-4">
-                      <button
-                        onClick={() => setShowInvalidYear(!showInvalidYear)}
-                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors"
-                      >
-                        <ChevronDown
-                          className={cn("size-4 transition-transform", showInvalidYear && "rotate-180")}
-                        />
-                        <span className="font-medium">
-                          {showInvalidYear ? "Sembunyikan" : "Tampilkan"} {invalidArticles.length} artikel dengan tahun tidak valid
-                        </span>
-                        <span className="ml-auto text-xs text-muted-foreground">
-                          (tahun null / {'<'}{' '}1900 / {'>'}{' '}{CURRENT_YEAR})
-                        </span>
-                      </button>
-
-                      {showInvalidYear && (
-                        <div className="space-y-3 mt-3 pl-4 border-l-2 border-muted/30">
-                          {invalidArticles.map((item) => (
-                            <ArticleCard
-                              key={item.doi ?? item.title}
-                              item={item}
-                              hasSummary={!!summaries[item.title]}
-                              isExpanded={expanded === item.title}
-                              isSummarizing={summarizing === item.title}
-                              isSaving={savingMap[item.doi ?? `${item.title}_${item.year}`]}
-                              alreadySaved={collection.some((c) => c.judul === item.title || c.doi === item.doi)}
-                              oaResult={isOpenAlexResult(item) ? (item as OpenAlexResult) : null}
-                              onSummarize={() => handleSummarize(item)}
-                              onSave={() => handleSaveToCollection(item)}
-                              onOpen={() => handleOpenArticle(item)}
-                              openingArticle={openingArticle}
-                              searchSource={searchSource}
-                              isInvalidYear={true}
-                            />
-                          ))}
+                    <Card key={item.doi ?? item.title} className="overflow-hidden">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-1">
+                            <CardTitle className="text-base leading-snug">
+                              {item.title}
+                            </CardTitle>
+                            <CardDescription>
+                              {item.author} · {item.year ?? "Tahun tidak diketahui"}
+                            </CardDescription>
+                          </div>
                         </div>
-                      )}
-                    </div>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {item.type && (
+                            <Badge variant="secondary" className="text-xs gap-1">
+                              <span>{getTypeDisplay(item.type).icon}</span>
+                              <span>{getTypeDisplay(item.type).label}</span>
+                            </Badge>
+                          )}
+                          {searchSource === "openalex" && oaResult?.oaStatus && (
+                            <Badge variant="default" className="text-xs bg-green-600 dark:bg-green-700 gap-1">
+                              <Unlock className="size-3" />
+                              {oaResult.oaStatus}
+                            </Badge>
+                          )}
+                          {searchSource === "crossref" && (
+                            <Badge variant="outline" className="text-xs">
+                              CrossRef
+                            </Badge>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pb-3">
+                        {item.abstract && (
+                          <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
+                            {item.abstract}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSummarize(item)}
+                            disabled={isSummarizing}
+                            className="gap-1.5"
+                          >
+                            {isSummarizing ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : hasSummary ? (
+                              <FileText className="size-3.5" />
+                            ) : (
+                              <Sparkles className="size-3.5" />
+                            )}
+                            {isSummarizing ? "Merangkum..." : hasSummary ? "Lihat Rangkuman" : "Rangkum dengan AI"}
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSaveToCollection(item)}
+                            disabled={isSaving || alreadySaved}
+                            className="gap-1.5"
+                          >
+                            {isSaving ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Bookmark className={cn("size-3.5", alreadySaved && "fill-primary text-primary")} />
+                            )}
+                            {alreadySaved ? "Tersimpan" : "Simpan"}
+                          </Button>
+
+                          {/* Buka Artikel */}
+                          {oaResult?.openAccessPdf ? (
+                            <a href={oaResult.openAccessPdf} target="_blank" rel="noopener noreferrer">
+                              <Button variant="outline" size="sm" className="gap-1.5">
+                                <ExternalLink className="size-3.5" />
+                                Buka Artikel
+                              </Button>
+                            </a>
+                          ) : item.doi || item.url ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenArticle(item)}
+                              disabled={openingArticle === item.doi}
+                              className="gap-1.5"
+                            >
+                              {openingArticle === item.doi ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <ExternalLink className="size-3.5" />
+                              )}
+                              {openingArticle === item.doi ? "Membuka..." : "Buka Artikel"}
+                            </Button>
+                          ) : null}
+
+                          {item.doi && (
+                            <span className="text-xs text-muted-foreground self-center ml-auto">
+                              {oaResult?.citationCount ? `📚 ${oaResult.citationCount} sitasi · ` : ""}
+                              DOI: {item.doi}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Summary Detail */}
+                        {isExpanded && hasSummary && (
+                          <>
+                            <Separator className="my-4" />
+                            <div className="grid gap-3 text-sm">
+                              <SummaryItem label="🎯 Masalah" text={summaries[item.title].problem} />
+                              <SummaryItem label="🔧 Metode" text={summaries[item.title].method} />
+                              <SummaryItem label="📊 Hasil" text={summaries[item.title].result} />
+                              <SummaryItem label="🕳️ Gap" text={summaries[item.title].gap} />
+                            </div>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
                   )
-                })()}
+                })}
               </div>
 
               {/* Pagination */}
@@ -967,6 +852,16 @@ export default function LiteraturePage() {
           Sumber: OpenAlex (OA) · CrossRef · Semantic Scholar · Rangkuman AI · Verifikasi dengan artikel asli.
         </p>
       </div>
+    </div>
+  )
+}
+
+function SummaryItem({ label, text }: { label: string; text: string }) {
+  if (!text || text === "Gagal merangkum") return null
+  return (
+    <div>
+      <p className="font-medium text-xs text-muted-foreground mb-0.5">{label}</p>
+      <p className="text-sm">{text}</p>
     </div>
   )
 }
