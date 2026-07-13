@@ -68,7 +68,6 @@ function isOpenAlexResult(item: SearchResult): item is OpenAlexResult {
   return "openAccessPdf" in item
 }
 
-// Articles with unknown or future years
 const CURRENT_YEAR = new Date().getFullYear()
 function isInvalidYear(year: number | null): boolean {
   return year === null || year < 1900 || year > CURRENT_YEAR
@@ -403,10 +402,8 @@ export default function LiteraturePage() {
     if (e.key === "Enter") search(0)
   }
 
-  // invalid-year count (just for the toggle button)
   const invalidCount = results.filter((r) => isInvalidYear(r.year)).length
-  const shownResults = results.filter((r) => showInvalidYear || !isInvalidYear(r.year))
-  const totalPages = Math.ceil(shownResults.length / 20)
+  const totalPages = Math.ceil(results.length / 20)
 
   const filteredCollection = collection.filter((item) => {
     if (!collectionSearch) return true
@@ -528,7 +525,9 @@ export default function LiteraturePage() {
               </div>
 
               <div className="space-y-4">
-                {shownResults.map((item) => {
+                {results
+                  .filter((item) => showInvalidYear || !isInvalidYear(item.year))
+                  .map((item) => {
                   const hasSummary = !!summaries[item.title]
                   const isExpanded = expanded === item.title
                   const isSummarizing = summarizing === item.title
