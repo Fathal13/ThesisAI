@@ -479,3 +479,46 @@ TOTAL: ████████████████████████�
 
 **Build & Lint**: 0 errors, 0 warnings ✅
 **Total progress: ~98%** 🚀
+
+---
+
+### 🗓️ Sesi 13 Juli 2026 (Sore/Malam) — Relevance, Multi-Page Fetch & Capacity Planning
+
+**✅ Issue: Hasil Pencarian Kurang Relevan**
+- Hapus post-filter exact token match (terlalu ketat, buang artikel relevan berkonteks)
+- Implementasi **Rumus Scoring Token Overlap** — skor 0-100% berdasarkan match di title (10pts) + abstract (5pts) + bonus di awal judul (3pts)
+- Sort: relevance score desc → tahun desc
+- Threshold filter: `minScore=15%` (dapat diatur via query param)
+- Default minimal skor turun dari 20% → 15% agar tidak terlalu ketat
+
+**✅ Issue: Pool Artikel Terbatas (200)**
+- Fetch **3 halaman × 200 = 600 artikel** secara parallel (Promise.all) saat cache miss
+- Deduplikasi by DOI/title antar halaman
+- Waktu tambahan minimal (~200ms) karena parallel fetch
+
+**✅ Capacity Planning untuk ThesisAI**
+- **OpenAlex:** 100 req/s polite pool → ~33 user search/detik (3 calls/user)
+- **Supabase Free:** 50k MAU, 60 connection pool → memadai untuk 1k-5k DAU
+- **Gemini Free:** 60 RPM (~1 req/s) → bottleneck untuk AI summarize, perlu queue
+- **Vercel Hobby:** 100 GB-hr/month → cukup untuk traffic skala mahasiswa
+- **Usulan optimasi:** Request coalescing (dedupe parallel calls untuk query sama), cache persist
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~98%** 🚀
+
+---
+
+### 📋 Agenda Sesi Selanjutnya — Perbaikan & Fitur Baru
+
+**🔴 PRIORITAS — Perbaikan "Jadikan BAB":**
+1. **Tombol "Jadikan BAB" di card artikel tersimpan** — saat ini tombol ada di tab "Koleksi Saya" tapi perlu dipastikan berfungsi: mengirim judul lengkap, DOI, abstrak artikel ke API convert-to-bab
+2. **Generate BAB dari artikel** — saat tombol ditekan, Gemini/NVIDIA/OpenRouter harus generate draft BAB (sesuai nomor bab yang dipilih) berdasarkan **isi artikel** (judul + abstrak + rangkuman), bukan hanya membuat kerangka kosong
+3. **Penyimpanan hasil generate** — hasil draft bisa langsung muncul di halaman Writing (sebagai bab baru) ATAU disimpan dulu sebagai draft dengan tombol "Simpan BAB" tergantung tingkat kesulitan implementasi
+
+**⚪ SECONDARY:**
+- Implementasi request coalescing untuk mengurangi redundant API call
+- Async queue untuk AI summarize (Vercel Queues / Supabase pg_cron)
+- Pagination di koleksi tersimpan (kalau sudah banyak)
+- Export koleksi ke format sitasi (BibTeX/CSL)
+
+**Build & Lint Target**: 0 errors, 0 warnings
