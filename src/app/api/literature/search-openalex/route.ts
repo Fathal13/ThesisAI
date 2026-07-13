@@ -1,102 +1,122 @@
 import { NextResponse } from "next/server"
 import { searchOpenAlex } from "@/lib/openalex"
-import { extractSearchKeywords } from "@/lib/ai"
+
+// ─── In-memory search cache ───
+// Hash(query + journalOnly) → { results, total, _ts }
+// Cache TTL 10 menit, cleanup tiap 5 menit.
+// Tujuannya: page 0 fetch 200 artikel, cache, lalu semua page slice dari cache yang sama.
+// Post-filter keyword match jalan sekali di cache entry, bukan tiap page.
+
+interface CacheEntry {
+  allResults: Awaited<ReturnType<typeof searchOpenAlex>>["results"]
+  total: number
+  _ts: number
+}
+
+const SEARCH_CACHE = new Map<string, CacheEntry>()
+const CACHE_TTL = 10 * 60 * 1000 // 10 menit
+const CACHE_CLEANUP_INTERVAL = 5 * 60 * 1000
+
+// Periodic cache cleanup — sekali aja via globalThis
+if (typeof globalThis !== "undefined" && !(globalThis as Record<string, unknown>).__openalexCacheCleanup) {
+  ;(globalThis as Record<string, unknown>).__openalexCacheCleanup = true
+  setInterval(() => {
+    const now = Date.now()
+    for (const [key, entry] of SEARCH_CACHE) {
+      if (now - entry._ts > CACHE_TTL) {
+        SEARCH_CACHE.delete(key)
+      }
+    }
+  }, CACHE_CLEANUP_INTERVAL)
+}
+
+function makeCacheKey(query: string, journalOnly: boolean): string {
+  return `${query.toLowerCase().trim()}|${journalOnly}`
+}
 
 /**
- * Stop words umum (Indonesia + Inggris) yang tidak signifikan untuk filter judul
+ * Tokenisasi query: pecah jadi kata-kata individual, buang karakter non-alfanumerik
  */
-const STOP_WORDS = new Set([
-  "yang", "dan", "di", "ke", "dari", "dengan", "pada", "ini", "itu", "untuk",
-  "dalam", "adalah", "telah", "akan", "tidak", "saya", "kami", "kita", "mereka",
-  "anda", "atau", "tetapi", "namun", "karena", "sebagai", "oleh", "sebuah",
-  "the", "and", "for", "with", "from", "that", "this", "are", "was", "were",
-  "been", "have", "has", "had", "more", "about", "than", "also", "its",
-  "other", "such", "into", "can", "may", "each", "between", "very", "over",
-  "penelitian", "study", "studies", "analysis", "pengaruh", "pada", "yang",
-  "review", "systematic", "literature", "approach", "method", "based",
-])
-
-/**
- * Ekstrak kata kunci signifikan dari input user (exclude stop words & kata pendek)
- */
-function extractSignificantKeywords(query: string): string[] {
+function tokenize(query: string): string[] {
   return query
     .toLowerCase()
-    .split(/[\s,;.()"]+/)
-    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word))
+    .split(/[\s,;.()"\-/:]+/)
+    .filter((word) => word.length >= 2)
 }
 
 /**
  * Filter hasil agar hanya artikel yang:
- * - Judulnya mengandung minimal SATU kata kunci signifikan, ATAU
- * - Nama jurnal/sumbernya mengandung minimal SATU kata kunci signifikan
+ * - Judulnya mengandung minimal SATU token dari query user (bukan exact phrase)
+ * - ATAU nama jurnal/sumbernya mengandung minimal SATU token
+ *
+ * Dilonggarkan: token cukup 2+ karakter (bukan 3) dan tanpa stop words list,
+ * karena OpenAlex relevance + user intent sudah cukup sebagai signal.
  */
-function filterByKeywordMatch(
+function filterByTokenMatch(
   results: Awaited<ReturnType<typeof searchOpenAlex>>["results"],
   query: string,
 ): typeof results {
-  const keywords = extractSignificantKeywords(query)
+  const tokens = tokenize(query)
 
-  // Kalau gak ada kata kunci signifikan (misal cuma "the" doang), lempar semua
-  if (keywords.length === 0) return results
+  // Kalau hasil tokenisasi kosong, kembalikan semua
+  if (tokens.length === 0) return results
 
   return results.filter((item) => {
     const title = item.title?.toLowerCase() ?? ""
     const source = item.source?.toLowerCase() ?? ""
 
-    return keywords.some((kw) => title.includes(kw) || source.includes(kw))
+    return tokens.some((token) => title.includes(token) || source.includes(token))
   })
 }
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const q = searchParams.get("q")
+  const rawQuery = searchParams.get("q")
   const page = Number(searchParams.get("page")) || 0
   const perPage = Number(searchParams.get("perPage")) || 20
   const journalOnly = searchParams.get("journalOnly") === "true"
 
-  if (!q || q.length < 3) {
+  if (!rawQuery || rawQuery.length < 3) {
     return NextResponse.json({ error: "Minimal 3 karakter" }, { status: 400 })
   }
 
-  // Ekstrak kata kunci dari query panjang user
-  let searchQuery = q
   try {
-    const keywordsRes = await extractSearchKeywords(q)
-    if (keywordsRes && keywordsRes !== "fallback" && keywordsRes.length < 200) {
-      searchQuery = keywordsRes
-      console.log(`[OpenAlex Search] "${q}" → keywords: "${searchQuery}"`)
+    const cacheKey = makeCacheKey(rawQuery, journalOnly)
+    let cached = SEARCH_CACHE.get(cacheKey)
+
+    // Refresh cache tiap page 0 (pencarian baru)
+    if (!cached || page === 0) {
+      console.log(`[OpenAlex Cache] Fetching 200 articles for "${rawQuery}"`)
+      const { results, total } = await searchOpenAlex(rawQuery, 0, 200, journalOnly)
+
+      // Post-filter: pastikan judul/sumber mengandung token dari query user
+      const filtered = filterByTokenMatch(results, rawQuery)
+
+      SEARCH_CACHE.set(cacheKey, { allResults: filtered, total, _ts: Date.now() })
+      cached = SEARCH_CACHE.get(cacheKey)!
     }
-  } catch {
-    // Fallback ke query asli
-  }
 
-  try {
-    // Ambil lebih banyak dari OpenAlex biar hasil filtering tetap banyak
-    const fetchPerPage = Math.min(perPage * 3, 100)
-    const { results, total } = await searchOpenAlex(searchQuery, page, fetchPerPage, journalOnly)
-
-    // Filter: judul atau nama jurnal harus mengandung minimal 1 kata kunci dari input user
-    const filtered = filterByKeywordMatch(results, q)
-
-    const filteredTotal = filtered.length
+    const allResults = cached.allResults
+    const totalFromApi = cached.total
+    const filteredTotal = allResults.length
     const totalPages = Math.ceil(filteredTotal / perPage)
-    const startIdx = 0
-    const pageResults = filtered.slice(startIdx, startIdx + perPage)
-    const showingCount = Math.min(perPage, filteredTotal)
+    const startIdx = page * perPage
+    const pageResults = allResults.slice(startIdx, startIdx + perPage)
+    const showingCount = pageResults.length
 
     return NextResponse.json({
       results: pageResults,
       total: filteredTotal,
+      totalApi: totalFromApi,
       totalPages,
       page,
       perPage,
-      searchQuery,
-      showing: Math.max(0, showingCount),
       journalOnly,
-      message: filteredTotal > 0
-        ? `Menampilkan ${showingCount} dari ${filteredTotal.toLocaleString("id-ID")} artikel yang sesuai${journalOnly ? " (jurnal saja)" : ""} (halaman ${page + 1} dari ${totalPages})`
-        : "Tidak ada artikel ditemukan. Coba dengan kata kunci lain.",
+      showing: showingCount,
+      message:
+        filteredTotal > 0
+          ? `Menampilkan ${showingCount} dari ${filteredTotal.toLocaleString("id-ID")} artikel yang sesuai${journalOnly ? " (jurnal saja)" : ""} (halaman ${page + 1} dari ${totalPages})`
+          : "Tidak ada artikel ditemukan. Coba dengan kata kunci lain.",
     })
   } catch (error) {
     console.error("OpenAlex search error:", error)
