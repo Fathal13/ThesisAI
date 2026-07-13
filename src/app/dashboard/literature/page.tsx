@@ -91,6 +91,10 @@ export default function LiteraturePage() {
   // Article opening state
   const [openingArticle, setOpeningArticle] = useState<string | null>(null)
 
+  // Extracted keywords from AI (disimpan untuk debugging)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [extractedKeywords, setExtractedKeywords] = useState<string | null>(null)
+
   // Convert to bab state
   const [convertToBab, setConvertToBab] = useState<{ id: string; judul: string } | null>(null)
   const [convertBabNumber, setConvertBabNumber] = useState(2)
@@ -107,9 +111,29 @@ export default function LiteraturePage() {
     setError("")
     setSearched(true)
 
+    // Step 1: Extract keywords from user query using AI
+    let searchQuery = query
+    try {
+      const keywordsRes = await fetch("/api/literature/extract-keywords", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      })
+      const keywordsData = await keywordsRes.json()
+      if (keywordsData.keywords && keywordsData.keywords !== "fallback") {
+        searchQuery = keywordsData.keywords
+        setExtractedKeywords(searchQuery)
+      } else {
+        setExtractedKeywords(null)
+      }
+    } catch {
+      setExtractedKeywords(null)
+    }
+
+    // Step 2: Search with extracted keywords
     try {
       if (searchSource === "openalex") {
-        const res = await fetch(`/api/literature/search-openalex?q=${encodeURIComponent(query)}&page=${pageNum}&perPage=20`)
+        const res = await fetch(`/api/literature/search-openalex?q=${encodeURIComponent(searchQuery)}&page=${pageNum}&perPage=20`)
         const data = await res.json()
 
         if (!res.ok) {
@@ -122,7 +146,7 @@ export default function LiteraturePage() {
         setTotalItems(data.total ?? 0)
         setPage(data.page)
       } else {
-        const res = await fetch(`/api/literature/search?q=${encodeURIComponent(query)}&page=${pageNum}&journalOnly=true`)
+        const res = await fetch(`/api/literature/search?q=${encodeURIComponent(searchQuery)}&page=${pageNum}&journalOnly=true`)
         const data = await res.json()
 
         if (!res.ok) {
