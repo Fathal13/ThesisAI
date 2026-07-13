@@ -29,16 +29,21 @@ export async function POST(req: Request) {
     }
 
     // === CEK CACHE ENRICHMENT DULU ===
-    const { data: cached } = await supabase
-      .from("enrichment_cache")
-      .select("*")
-      .eq("doi", doi)
-      .eq("user_id", session.user.id)
-      .maybeSingle()
+    // Graceful: kalau tabel enrichment_cache belum ada, skip cache
+    try {
+      const { data: cached } = await supabase
+        .from("enrichment_cache")
+        .select("*")
+        .eq("doi", doi)
+        .eq("user_id", session.user.id)
+        .maybeSingle()
 
-    if (cached) {
-      console.log(`[Enrich] Cache hit for ${doi}`)
-      return NextResponse.json(cached.enrichment_data)
+      if (cached) {
+        console.log(`[Enrich] Cache hit for ${doi}`)
+        return NextResponse.json(cached.enrichment_data)
+      }
+    } catch {
+      console.warn("[Enrich] Cache table not ready — skipping cache read")
     }
 
     // === ENRICHMENT VIA API ===
@@ -61,17 +66,22 @@ export async function POST(req: Request) {
     }
 
     // === SIMPAN KE CACHE ===
-    const { error: upsertError } = await supabase.from("enrichment_cache").upsert(
-      {
-        user_id: session.user.id,
-        doi,
-        enrichment_data: result,
-      },
-      { onConflict: "user_id, doi", ignoreDuplicates: false },
-    )
+    // Graceful: kalau gagal simpan cache (table blm ada / RLS), tetap return hasil
+    try {
+      const { error: upsertError } = await supabase.from("enrichment_cache").upsert(
+        {
+          user_id: session.user.id,
+          doi,
+          enrichment_data: result,
+        },
+        { onConflict: "user_id, doi", ignoreDuplicates: false },
+      )
 
-    if (upsertError) {
-      console.error("[Enrich] Failed to save cache:", upsertError.message)
+      if (upsertError) {
+        console.error("[Enrich] Failed to save cache:", upsertError.message)
+      }
+    } catch {
+      console.warn("[Enrich] Cache table not ready — skipping cache write")
     }
 
     return NextResponse.json({ ...result, found: true })

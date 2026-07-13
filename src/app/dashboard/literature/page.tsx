@@ -238,8 +238,14 @@ export default function LiteraturePage() {
     if (!item.doi) return
 
     // Toggle kalau sudah di-enrich sebelumnya
-    if (enrichments[item.doi]) {
-      return // show badge info di UI tanpa loading ulang
+    const existing = enrichments[item.doi]
+    if (existing) {
+      // Kalau sudah ada data tapi found=false, coba fetch ulang
+      if (!existing.found) {
+        // continue to fetch
+      } else {
+        return // show badge info di UI tanpa loading ulang
+      }
     }
 
     setEnriching(item.doi)
@@ -262,6 +268,7 @@ export default function LiteraturePage() {
         return
       }
 
+      // Simpan data tapi jangan set kalau found=false (soalnya panel akan kosong)
       setEnrichments((prev) => ({ ...prev, [item.doi!]: data }))
     } catch {
       setError("Gagal mengambil detail artikel. Coba lagi.")
@@ -473,8 +480,8 @@ export default function LiteraturePage() {
                           )}
                         </div>
 
-                        {/* Enrichment Detail Panel */}
-                        {item.doi && enrichments[item.doi] && (
+                        {/* Enrichment Detail Panel — hanya tampil kalau data ditemukan */}
+                        {item.doi && enrichments[item.doi]?.found && (
                           <>
                             <Separator className="my-4" />
                             <div className="space-y-3 text-sm">
