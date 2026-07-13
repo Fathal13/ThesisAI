@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { searchOpenAlex } from "@/lib/openalex"
+import { extractSearchKeywords } from "@/lib/ai"
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -11,14 +12,27 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Minimal 3 karakter" }, { status: 400 })
   }
 
+  // Ekstrak kata kunci dari query panjang user
+  let searchQuery = q
   try {
-    const { results, total } = await searchOpenAlex(q, page, perPage)
+    const keywordsRes = await extractSearchKeywords(q)
+    if (keywordsRes && keywordsRes !== "fallback" && keywordsRes.length < 200) {
+      searchQuery = keywordsRes
+      console.log(`[OpenAlex Search] "${q}" → keywords: "${searchQuery}"`)
+    }
+  } catch {
+    // Fallback ke query asli
+  }
+
+  try {
+    const { results, total } = await searchOpenAlex(searchQuery, page, perPage)
     return NextResponse.json({
       results,
       total,
       page,
       perPage,
       totalPages: Math.ceil(total / perPage),
+      searchQuery,
     })
   } catch (error) {
     console.error("OpenAlex search error:", error)
