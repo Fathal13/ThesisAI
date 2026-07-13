@@ -403,10 +403,9 @@ export default function LiteraturePage() {
     if (e.key === "Enter") search(0)
   }
 
-  // Compute filtered results for pagination
-  const validResults = results.filter((r) => !isInvalidYear(r.year))
-  const invalidResults = results.filter((r) => isInvalidYear(r.year))
-  const shownResults = showInvalidYear ? results : validResults
+  // invalid-year count (just for the toggle button)
+  const invalidCount = results.filter((r) => isInvalidYear(r.year)).length
+  const shownResults = results.filter((r) => showInvalidYear || !isInvalidYear(r.year))
   const totalPages = Math.ceil(shownResults.length / 20)
 
   const filteredCollection = collection.filter((item) => {
@@ -529,7 +528,9 @@ export default function LiteraturePage() {
               </div>
 
               <div className="space-y-4">
-                {shownResults.map((item) => {
+                {results
+                  .filter((item) => showInvalidYear || !isInvalidYear(item.year))
+                  .map((item) => {
                   const hasSummary = !!summaries[item.title]
                   const isExpanded = expanded === item.title
                   const isSummarizing = summarizing === item.title
@@ -689,14 +690,14 @@ export default function LiteraturePage() {
               )}
 
               {/* Invalid-year toggle */}
-              {invalidResults.length > 0 && (
+              {invalidCount > 0 && (
                 <button
                   onClick={() => setShowInvalidYear(!showInvalidYear)}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showInvalidYear
-                    ? `🕰️ Sembunyikan ${invalidResults.length} artikel dengan tahun tidak valid`
-                    : `🕰️ Tampilkan ${invalidResults.length} artikel dengan tahun tidak diketahui / tidak valid`
+                    ? `🕰️ Sembunyikan ${invalidCount} artikel dengan tahun tidak valid`
+                    : `🕰️ Tampilkan ${invalidCount} artikel dengan tahun tidak diketahui / tidak valid`
                   }
                 </button>
               )}
