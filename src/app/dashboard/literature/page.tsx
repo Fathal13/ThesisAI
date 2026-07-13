@@ -528,9 +528,7 @@ export default function LiteraturePage() {
               </div>
 
               <div className="space-y-4">
-                {results
-                  .filter((item) => showInvalidYear || !isInvalidYear(item.year))
-                  .map((item) => {
+                {shownResults.map((item) => {
                   const hasSummary = !!summaries[item.title]
                   const isExpanded = expanded === item.title
                   const isSummarizing = summarizing === item.title
