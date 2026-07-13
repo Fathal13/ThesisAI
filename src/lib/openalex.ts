@@ -71,6 +71,7 @@ function reconstructAbstract(invertedIndex: Record<string, number[]> | null): st
 /**
  * Cari artikel Open Access via OpenAlex API
  * Filter otomatis: hanya artikel dengan open_access.is_oa = true
+ * Search di title + abstract (default search behavior OpenAlex)
  */
 export async function searchOpenAlex(
   query: string,
