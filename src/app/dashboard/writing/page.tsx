@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import type { Bab as BabType } from "@/types"
 import { Edit3, Loader2, Sparkles, Trash2, FileText, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -71,20 +72,17 @@ export default function WritingPage() {
     status: "draft" as Bab["status"],
   })
 
-  // Auto-open bab from URL param
+  // Auto-open bab from URL param (useEffect on mount + callback ke setBabList)
+  // Ref to store target bab id so we can reference it inside setState callback
+  const openBabRef = useRef<string | null>(null)
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const babId = params.get("bab")
     if (babId) {
-      // Will trigger after fetchBab loads
-      setTimeout(() => {
-        const targetBab = babList.find((b) => b.id === babId)
-        if (targetBab) {
-          editBab(targetBab)
-        }
-      }, 500)
+      openBabRef.current = babId
     }
-  }, [babList])
+  }, [])
 
   const fetchBab = async () => {
     try {
@@ -94,7 +92,30 @@ export default function WritingPage() {
         .select("*")
         .order("nomor_bab", { ascending: true })
 
-      if (!err && data) setBabList(data)
+      if (!err && data) {
+        // Check if we need to auto-open a specific bab
+        const targetId = openBabRef.current
+        if (targetId) {
+          const babArr = data as BabType[]
+          const targetBab = babArr.find((b) => b.id === targetId)
+          if (targetBab) {
+            // Set editing state directly from fetched data
+            setEditingId(targetBab.id)
+            setForm({
+              judul: targetBab.judul,
+              nomor_bab: String(targetBab.nomor_bab),
+              konten: targetBab.konten,
+              target_selesai: targetBab.target_selesai ?? "",
+              status: targetBab.status,
+            })
+            setReview(null)
+            openBabRef.current = null
+            // Clean up URL
+            window.history.replaceState({}, "", "/dashboard/writing")
+          }
+        }
+        setBabList(data)
+      }
     } catch {
       // Not logged in
     } finally {
@@ -102,8 +123,7 @@ export default function WritingPage() {
     }
   }
 
-  useEffect(() => { fetchBab() } // eslint-disable-line react-hooks/set-state-in-effect
-  , [])
+  useEffect(() => { fetchBab() }, [])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
