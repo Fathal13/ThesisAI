@@ -125,9 +125,6 @@ export default function LiteraturePage() {
   const [collectionSearch, setCollectionSearch] = useState("")
   const [activeTab, setActiveTab] = useState("cari")
 
-  // Article opening state
-  const [openingArticle, setOpeningArticle] = useState<string | null>(null)
-
   // Convert to bab state
   const [convertToBab, setConvertToBab] = useState<{ id: string; judul: string } | null>(null)
   const [convertBabNumber, setConvertBabNumber] = useState(2)
@@ -340,6 +337,67 @@ export default function LiteraturePage() {
 
       setSummaries((prev) => ({ ...prev, [item.title]: data }))
       setExpanded(item.title)
+    } catch {
+      setError("Gagal merangkum. Coba lagi.")
+    } finally {
+      setSummarizing(null)
+    }
+  }
+
+  // ─── Rangkum dari Koleksi (CollectionItem) ───
+
+  async function handleSummarizeFromCollection(item: CollectionItem) {
+    if (summaries[item.judul]) {
+      setExpanded((prev) => (prev === item.judul ? null : item.judul))
+      return
+    }
+
+    setSummarizing(item.judul)
+
+    try {
+      let abstractForAI = item.abstrak
+
+      // Coba enrichment dulu untuk dapetin TLDR (Semantic Scholar)
+      if (item.doi) {
+        try {
+          const enrichRes = await fetch("/api/literature/enrich", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              doi: item.doi,
+              title: item.judul,
+              abstract: item.abstrak,
+            }),
+          })
+          const enrichData = await enrichRes.json()
+          if (enrichData?.tldr?.text) {
+            abstractForAI = `TLDR (AI-generated summary): ${enrichData.tldr.text}\n\nOriginal Abstract: ${abstractForAI ?? "N/A"}`
+          }
+        } catch {
+          // silent — fallback ke abstract original
+        }
+      }
+
+      const res = await fetch("/api/literature/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: item.judul,
+          abstract: abstractForAI,
+          doi: item.doi,
+          articleUrl: item.link,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error ?? "Gagal merangkum")
+        return
+      }
+
+      setSummaries((prev) => ({ ...prev, [item.judul]: data }))
+      setExpanded(item.judul)
     } catch {
       setError("Gagal merangkum. Coba lagi.")
     } finally {
@@ -791,6 +849,28 @@ export default function LiteraturePage() {
                         </span>
                       )}
 
+                      {/* Rangkum dengan AI */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSummarizeFromCollection(item)}
+                        disabled={summarizing === item.judul}
+                        className="gap-1.5"
+                      >
+                        {summarizing === item.judul ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : summaries[item.judul] ? (
+                          <FileText className="size-3.5" />
+                        ) : (
+                          <Sparkles className="size-3.5" />
+                        )}
+                        {summarizing === item.judul
+                          ? "Merangkum..."
+                          : summaries[item.judul]
+                            ? "Lihat Rangkuman"
+                            : "Rangkum dengan AI"}
+                      </Button>
+
                       {/* Jadikan BAB */}
                       <Button
                         variant="default"
@@ -813,6 +893,19 @@ export default function LiteraturePage() {
                         Hapus
                       </Button>
                     </div>
+
+                    {/* Summary Detail untuk koleksi */}
+                    {expanded === item.judul && summaries[item.judul] && (
+                      <>
+                        <Separator className="my-4" />
+                        <div className="grid gap-3 text-sm">
+                          <SummaryItem label="🎯 Masalah" text={summaries[item.judul].problem} />
+                          <SummaryItem label="🔧 Metode" text={summaries[item.judul].method} />
+                          <SummaryItem label="📊 Hasil" text={summaries[item.judul].result} />
+                          <SummaryItem label="🕳️ Gap" text={summaries[item.judul].gap} />
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               ))}

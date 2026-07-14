@@ -55,12 +55,13 @@ export async function POST(req: Request) {
     } catch (aiError) {
       console.error("[Convert to Bab] AI error:", aiError)
       // Fallback: buat draft minimal jika AI gagal
-      const rangkumanSection = lit.rangkuman ? `
+      const rangkuman = lit.rangkuman as Record<string, string> | null
+      const rangkumanSection = rangkuman ? `
 ### Ringkasan Artikel (AI)
-**Masalah**: ${(lit.rangkuman as any).problem}
-**Metode**: ${(lit.rangkuman as any).method}
-**Hasil**: ${(lit.rangkuman as any).result}
-**Gap**: ${(lit.rangkuman as any).gap}
+**Masalah**: ${rangkuman.problem ?? ""}
+**Metode**: ${rangkuman.method ?? ""}
+**Hasil**: ${rangkuman.result ?? ""}
+**Gap**: ${rangkuman.gap ?? ""}
 ` : lit.abstrak ? `
 ### Abstrak
 ${lit.abstrak}
