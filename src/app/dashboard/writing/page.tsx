@@ -157,7 +157,7 @@ export default function WritingPage() {
       judul: bab.judul,
       nomor_bab: String(bab.nomor_bab),
       konten: bab.konten,
-      target_selesai: bab.target_selesai ?? "",
+      target_selesai: formatDateInput(bab.target_selesai),
       status: bab.status,
     })
     setReview(null)
@@ -252,13 +252,15 @@ export default function WritingPage() {
         <CardContent>
           <form onSubmit={handleSave} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nomor_bab">Nomor Bab</Label>
+              <div className="space-y-2 group">
+                <Label htmlFor="nomor_bab" className="group-hover:text-primary transition-colors cursor-pointer">
+                  Nomor Bab
+                </Label>
                 <Select
                   value={formNomorBab}
                   onValueChange={(v) => { if (v) setForm({ ...form, nomor_bab: v }) }}
                 >
-                  <SelectTrigger id="nomor_bab">
+                  <SelectTrigger id="nomor_bab" className="group-hover:border-primary/50 transition-colors">
                     <SelectValue placeholder="Pilih bab" />
                   </SelectTrigger>
                   <SelectContent>
@@ -270,29 +272,35 @@ export default function WritingPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="target_selesai">Target Selesai (opsional)</Label>
+              <div className="space-y-2 group">
+                <Label htmlFor="target_selesai" className="group-hover:text-primary transition-colors cursor-pointer">
+                  Target Selesai (opsional)
+                </Label>
                 <Input
                   id="target_selesai"
                   type="date"
                   value={form.target_selesai}
                   onChange={(e) => setForm({ ...form, target_selesai: e.target.value })}
+                  className="group-hover:border-primary/50 transition-colors"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="judul">Judul Bab (biarkan kosong untuk pakai default)</Label>
+            <div className="space-y-2 group">
+              <Label htmlFor="judul" className="group-hover:text-primary transition-colors cursor-pointer">
+                Judul Bab (biarkan kosong untuk pakai default)
+              </Label>
               <Input
                 id="judul"
                 placeholder={BAB_OPTIONS.find((b) => b.value === form.nomor_bab)?.label ?? ""}
                 value={form.judul}
                 onChange={(e) => setForm({ ...form, judul: e.target.value })}
+                className="group-hover:border-primary/50 transition-colors"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="file_upload">Upload File (.docx / .txt) — Opsional</Label>
+            <div className="space-y-2 group">
+              <Label htmlFor="file_upload" className="group-hover:text-primary transition-colors cursor-pointer">Upload File (.docx / .txt) — Opsional</Label>
               <Input
                 id="file_upload"
                 type="file"
@@ -323,6 +331,7 @@ export default function WritingPage() {
                   }
                 }}
                 disabled={uploadLoading}
+                className="group-hover:border-primary/50 transition-colors"
               />
               {uploadLoading && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -335,15 +344,15 @@ export default function WritingPage() {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="konten">Isi Bab</Label>
+            <div className="space-y-2 group">
+              <Label htmlFor="konten" className="group-hover:text-primary transition-colors cursor-pointer">Isi Bab</Label>
               <Textarea
                 id="konten"
                 placeholder="Tulis atau paste isi bab skripsimu di sini..."
                 value={form.konten}
                 onChange={(e) => setForm({ ...form, konten: e.target.value })}
                 rows={12}
-                className="min-h-[200px]"
+                className="min-h-[200px] group-hover:border-primary/50 transition-colors"
               />
             </div>
 
@@ -487,6 +496,25 @@ export default function WritingPage() {
       </div>
     </div>
   )
+}
+
+/**
+ * Konversi target_selesai dari Supabase (string/Date/null) ke format YYYY-MM-DD
+ * untuk input type="date". Input type="date" cuma nerima format YYYY-MM-DD.
+ */
+function formatDateInput(date: string | Date | null | undefined): string {
+  if (!date) return ""
+  if (typeof date === "string") {
+    // Kalau udah YYYY-MM-DD, return langsung
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date
+    // Kalau string ISO: parse dulu
+    const d = new Date(date)
+    if (isNaN(d.getTime())) return ""
+    return d.toISOString().split("T")[0]
+  }
+  // Date object
+  if (isNaN(date.getTime())) return ""
+  return date.toISOString().split("T")[0]
 }
 
 function ReviewSection({ title, items, icon }: { title: string; items: string[]; icon: React.ReactNode }) {
