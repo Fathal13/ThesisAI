@@ -330,34 +330,33 @@ export default function SidangPage() {
         })
       }
 
-      // Hanya kirim id untuk row yang SUDAH ADA — row baru dibiarkan DEFAULT gen_random_uuid()
-      // Upsert dengan onConflict="id" akan INSERT kalau id tidak dikirim (default)
-      // atau UPDATE kalau id cocok dengan existing row
-      const payload = questions.map((q) => {
-        const existingId = existingMap.get(q.question)
-        const row: Record<string, unknown> = {
-          user_id: session.user.id,
-          bab_id: selectedBab,
-          pertanyaan: q.question,
-          kategori: q.category,
-          jawaban_ai: q.sampleAnswer,
-          user_answer: q.userAnswer,
-          mastered: q.mastered,
-          favorit: q.favorit,
-        }
-        if (existingId) row.id = existingId
-        return row
-      })
+      // SELALU kirim id: existing ID untuk UPDATE, random UUID untuk INSERT baru
+      // Ini penting karena upsert dengan onConflict="id" perlu id DI SETIAP ROW
+      const payload = questions.map((q) => ({
+        id: existingMap.get(q.question) ?? crypto.randomUUID(),
+        user_id: session.user.id,
+        bab_id: selectedBab,
+        pertanyaan: q.question,
+        kategori: q.category,
+        jawaban_ai: q.sampleAnswer,
+        user_answer: q.userAnswer,
+        mastered: q.mastered,
+        favorit: q.favorit,
+      }))
 
-      // Upsert per row (bukan batch) untuk handle publish-array berisi campuran insert & update
-      for (const row of payload) {
-        const { error: err } = await (supabase.from("sidang_questions") as any).upsert(row, { onConflict: "id" }) // eslint-disable-line @typescript-eslint/no-explicit-any
-        if (err) throw err
+      // Batch upsert — semua row punya id, jadi onConflict="id" aman
+      const { error: err } = await (supabase.from("sidang_questions") as any).upsert(payload, { onConflict: "id" }) // eslint-disable-line @typescript-eslint/no-explicit-any
+      if (err) {
+        console.error("[Sidang] Save error:", err)
+        setError("Gagal menyimpan ke database. Coba lagi.")
+        return
       }
 
       setError("✅ Disimpan ke database!")
       setTimeout(() => setError(""), 3000)
-    } catch { setError("Gagal menyimpan ke database. Coba lagi.") }
+    } catch {
+      setError("Gagal menyimpan ke database. Coba lagi.")
+    }
   }
 
   async function handleDeleteQuestion(index: number) {
