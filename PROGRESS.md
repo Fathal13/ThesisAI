@@ -567,6 +567,33 @@ TOTAL: ████████████████████████�
 
 ---
 
+### 🗓️ Sesi 14 Juli 2026 (Lanjutan) — Bug Marathon Writing & Sidang Page
+
+**✅ Writing Page — 6 perbaikan:**
+1. **Fix race condition auto-open bab** — pindah ke callback fetchBab() + useRef + clean URL ✅
+2. **Fix missing handleDelete** — restore function header yang kepotong ✅
+3. **Fix createClient → createBrowserClient** — baca cookie bukan localStorage (RLS 42501) ✅
+4. **Fix target_selesai hilang** — formatDateInput() handle Date→YYYY-MM-DD ✅
+5. **Hover effect form fields** — Nomor Bab, Target, Upload, Judul, Isi Bab ✅
+6. **Dropdown terpotong** — min-w + w-auto + highlight biru ✅
+
+**✅ Sidang Page — 7 perbaikan:**
+1. **Dropdown terpotong** — min-w + w-auto ✅
+2. **Dropdown double label** — pake bab.judul langsung ✅
+3. **SelectValue tampil ID** — lookup dari babList ✅
+4. **Pertanyaan hilang reload** — fetchSavedQuestions() ✅
+5. **Duplikat row Simpan ke DB** — dedup by pertanyaan + always send UUID ✅
+6. **Error message generic** — tidak expose detail ✅
+7. **Tombol Hapus per card** — Trash2, hapus DB+state ✅
+
+**Log 16 commits sesi ini:**
+906ab63 feat: Jadikan BAB AI · eba0b2c docs · 411d6f2 Rangkum koleksi · 333dc94 docs · 4792153 dead code cleanup · b8619ce docs · cc88342 race condition writing · feb5109 createBrowserClient · b19f6fc replace konten · a01bbc4 disclaimer prompt · 193420c target_selesai hover · 9bd71cb dropdown highlight · 9f99ba6 3 issues sidang · 78fc654 duplikat simpan · 331f958 upsert error dropdown · 170d34d fix simpan bab beda
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~99%** 🚀
+
+---
+
 ### 📋 Agenda Sesi Selanjutnya
 
 **⚪ SECONDARY:**
