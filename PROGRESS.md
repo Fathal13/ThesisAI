@@ -538,6 +538,21 @@ TOTAL: ████████████████████████�
 
 ---
 
+### 🗓️ Sesi 14 Juli 2026 (Lanjutan) — Rangkum AI di Koleksi
+
+**✅ Tambah "Rangkum dengan AI" di card koleksi:**
+- Tombol "Rangkum dengan AI" + "Lihat Rangkuman" + expand detail (Masalah, Metode, Hasil, Gap) di setiap card Koleksi Saya
+- Fungsi `handleSummarizeFromCollection()` — mirip dengan di tab Cari, dengan enrichment Semantic Scholar
+- State sharing: rangkuman dari tab Cari juga muncul di tab Koleksi (dan sebaliknya)
+- Hapus unused state `openingArticle` / `setOpeningArticle`
+- Fix lint `as any` di convert-to-bab route (ganti dengan `Record<string, string>`)
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~99%** 🚀
+**Commit**: `411d6f2` — push to `origin main` ✅
+
+---
+
 ### 📋 Agenda Sesi Selanjutnya
 
 **⚪ SECONDARY:**
