@@ -92,15 +92,14 @@ ${rangkumanSection}
       .single()
 
     if (existingBab) {
-      // Append ke bab existing
-      const newContent = `${existingBab.konten}\n\n---\n\n${draftContent}`
+      // REPLACE konten (bukan append) — draft baru dari artikel ini
       const { error: updateError } = await supabase
         .from("bab")
-        .update({ konten: newContent, updated_at: new Date().toISOString() })
+        .update({ konten: draftContent, updated_at: new Date().toISOString() })
         .eq("id", existingBab.id)
 
       if (updateError) throw updateError
-      return NextResponse.json({ success: true, appended: true, babId: existingBab.id })
+      return NextResponse.json({ success: true, replaced: true, babId: existingBab.id })
     } else {
       // Buat bab baru
       const judulBab = BAB_LABELS[babNumber as keyof typeof BAB_LABELS] ?? `Bab ${babNumber}`

@@ -430,7 +430,7 @@ export default function LiteraturePage() {
         return
       }
       setConvertSuccess({
-        message: `Draft berhasil ${data.appended ? "ditambahkan ke" : "dibuat di"} Bab ${convertBabNumber}!`,
+        message: `Draft berhasil ${data.replaced ? "diperbarui di" : "dibuat di"} Bab ${convertBabNumber}!`,
         babId: data.babId,
       })
       // Auto-redirect ke Writing page setelah 2 detik
