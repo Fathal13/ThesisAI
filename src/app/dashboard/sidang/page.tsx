@@ -316,7 +316,7 @@ export default function SidangPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return
 
-      // Cari existing questions by pertanyaan untuk upsert by user_id+pertanyaan
+      // Cari existing questions by pertanyaan untuk update (bukan insert baru)
       const { data: existing } = await supabase
         .from("sidang_questions")
         .select("id, pertanyaan")
@@ -330,22 +330,34 @@ export default function SidangPage() {
         })
       }
 
-      const payload = questions.map((q) => ({
-        id: existingMap.get(q.question) ?? undefined,
-        user_id: session.user.id,
-        bab_id: selectedBab,
-        pertanyaan: q.question,
-        kategori: q.category,
-        jawaban_ai: q.sampleAnswer,
-        user_answer: q.userAnswer,
-        mastered: q.mastered,
-        favorit: q.favorit,
-      }))
-      const { error: err } = await (supabase.from("sidang_questions") as any).upsert(payload, { onConflict: "id" }) // eslint-disable-line @typescript-eslint/no-explicit-any
-      if (err) { setError("Gagal simpan: " + err.message); return }
+      // Hanya kirim id untuk row yang SUDAH ADA — row baru dibiarkan DEFAULT gen_random_uuid()
+      // Upsert dengan onConflict="id" akan INSERT kalau id tidak dikirim (default)
+      // atau UPDATE kalau id cocok dengan existing row
+      const payload = questions.map((q) => {
+        const existingId = existingMap.get(q.question)
+        const row: Record<string, unknown> = {
+          user_id: session.user.id,
+          bab_id: selectedBab,
+          pertanyaan: q.question,
+          kategori: q.category,
+          jawaban_ai: q.sampleAnswer,
+          user_answer: q.userAnswer,
+          mastered: q.mastered,
+          favorit: q.favorit,
+        }
+        if (existingId) row.id = existingId
+        return row
+      })
+
+      // Upsert per row (bukan batch) untuk handle publish-array berisi campuran insert & update
+      for (const row of payload) {
+        const { error: err } = await (supabase.from("sidang_questions") as any).upsert(row, { onConflict: "id" }) // eslint-disable-line @typescript-eslint/no-explicit-any
+        if (err) throw err
+      }
+
       setError("✅ Disimpan ke database!")
       setTimeout(() => setError(""), 3000)
-    } catch { setError("Gagal menyimpan") }
+    } catch { setError("Gagal menyimpan ke database. Coba lagi.") }
   }
 
   async function handleDeleteQuestion(index: number) {
@@ -419,7 +431,7 @@ export default function SidangPage() {
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih bab yang mau dijadikan pertanyaan">
                     {selectedBab && babList.find((b) => b.id === selectedBab)
-                      ? `Bab ${babList.find((b) => b.id === selectedBab)!.nomor_bab} — ${babList.find((b) => b.id === selectedBab)!.judul}`
+                      ? babList.find((b) => b.id === selectedBab)!.judul
                       : "Pilih bab yang mau dijadikan pertanyaan"}
                   </SelectValue>
                 </SelectTrigger>
@@ -433,7 +445,7 @@ export default function SidangPage() {
                         value={bab.id}
                         className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                       >
-                        Bab {bab.nomor_bab} — {bab.judul}
+                        {bab.judul}
                       </SelectItem>
                     ))
                   )}
