@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Brain, Loader2, Sparkles, ChevronDown, ChevronUp, Bookmark, CheckCircle, RefreshCw, Printer } from "lucide-react"
+import { Brain, Loader2, Sparkles, ChevronDown, ChevronUp, Bookmark, CheckCircle, RefreshCw, Printer, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -42,6 +42,7 @@ function QuestionCard({
   onToggle,
   onUpdate,
   onEvaluate,
+  onDelete,
   evaluating,
   allQuestions,
 }: {
@@ -51,6 +52,7 @@ function QuestionCard({
   onToggle: () => void
   onUpdate: (updates: Partial<Question>) => void
   onEvaluate: () => void
+  onDelete: () => void
   evaluating: boolean
   allQuestions: Question[]
 }) {
@@ -158,6 +160,16 @@ function QuestionCard({
             >
               <RefreshCw className="size-3.5" />
               Hapus Jawaban
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              className="gap-1.5 text-destructive hover:text-destructive ml-auto"
+            >
+              <Trash2 className="size-3.5" />
+              Hapus
             </Button>
           </div>
 
@@ -303,7 +315,23 @@ export default function SidangPage() {
       const { supabase } = await import("@/lib/supabase")
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return
+
+      // Cari existing questions by pertanyaan untuk upsert by user_id+pertanyaan
+      const { data: existing } = await supabase
+        .from("sidang_questions")
+        .select("id, pertanyaan")
+        .eq("user_id", session.user.id)
+
+      const existingMap = new Map<string, string>()
+      if (existing) {
+        const items = existing as any[] // eslint-disable-line @typescript-eslint/no-explicit-any
+        items.forEach((row: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+          existingMap.set(row.pertanyaan, row.id)
+        })
+      }
+
       const payload = questions.map((q) => ({
+        id: existingMap.get(q.question) ?? undefined,
         user_id: session.user.id,
         bab_id: selectedBab,
         pertanyaan: q.question,
@@ -313,11 +341,28 @@ export default function SidangPage() {
         mastered: q.mastered,
         favorit: q.favorit,
       }))
-      const { error: err } = await (supabase.from("sidang_questions") as any).upsert(payload) // eslint-disable-line @typescript-eslint/no-explicit-any
+      const { error: err } = await (supabase.from("sidang_questions") as any).upsert(payload, { onConflict: "id" }) // eslint-disable-line @typescript-eslint/no-explicit-any
       if (err) { setError("Gagal simpan: " + err.message); return }
       setError("✅ Disimpan ke database!")
       setTimeout(() => setError(""), 3000)
     } catch { setError("Gagal menyimpan") }
+  }
+
+  async function handleDeleteQuestion(index: number) {
+    const q = questions[index]
+    if (!q || !confirm("Hapus pertanyaan ini?")) return
+
+    try {
+      const { supabase } = await import("@/lib/supabase")
+      // Hapus dari DB kalau ID adalah UUID (bukan randomUUID client)
+      const isDbId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q.id)
+      if (isDbId) {
+        await supabase.from("sidang_questions").delete().eq("id", q.id)
+      }
+      // Hapus dari state
+      const next = questions.filter((_, i) => i !== index)
+      setQuestions(next)
+    } catch { setError("Gagal menghapus") }
   }
 
   const tabCounts = {
@@ -451,6 +496,7 @@ export default function SidangPage() {
                     onToggle={() => setExpandedQ(expandedQ === i ? null : i)}
                     onUpdate={(updates) => updateQuestion(i, updates)}
                     onEvaluate={() => evaluateAnswer(i)}
+                    onDelete={() => handleDeleteQuestion(i)}
                     evaluating={evaluating === i}
                     allQuestions={questions}
                   />
