@@ -500,6 +500,14 @@ ${rangkumanText}${abstrakText}
 ### Fokus Bab ${babNumber}
 ${babFocus}
 
+### Peringatan — HANYA Abstrak
+Anda HANYA punya abstrak dan/atau rangkuman singkat dari artikel ini. Anda TIDAK membaca full-text artikel. Oleh karena itu:
+
+1. **JANGAN mengarang detail metodologi, angka, atau temuan spesifik yang tidak ada di sumber.**
+2. Jika informasi di sumber tidak cukup untuk suatu bagian, tulis: "[butuh verifikasi dari artikel asli]"
+3. Fokus pada KERANGKA dan IDE UTAMA — jangan mencoba membuat narasi yang terdengar meyakinkan tapi sebenarnya halusinasi.
+4. **Kamu tetap perlu membaca artikelnya secara langsung!**
+
 ### Aturan Penting
 1. Tulis dalam Bahasa Indonesia akademik yang formal dan jelas
 2. Panjang: 400-800 kata (sekitar 2-4 paragraf)
@@ -512,6 +520,9 @@ ${babFocus}
 
 ### Output
 Teks draft BAB ${babNumber} yang siap diedit mahasiswa. Langsung mulai dengan konten bab, tanpa kata pengantar.
+
+Di AWAL output, tambahkan disclaimer dalam format:
+> **Catatan:** Draft ini dibuat berdasarkan abstrak. Ada kemungkinan detail tidak lengkap. Kamu tetap perlu membaca artikelnya secara langsung!
 `
 
   const { text } = await withFallbackAndRetry((model) =>
