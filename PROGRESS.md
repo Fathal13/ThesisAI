@@ -508,12 +508,37 @@ TOTAL: ████████████████████████�
 
 ---
 
-### 📋 Agenda Sesi Selanjutnya — Perbaikan & Fitur Baru
+### 🗓️ Sesi 14 Juli 2026 — Perbaikan "Jadikan BAB" ✅ SELESAI
 
-**🔴 PRIORITAS — Perbaikan "Jadikan BAB":**
-1. **Tombol "Jadikan BAB" di card artikel tersimpan** — saat ini tombol ada di tab "Koleksi Saya" tapi perlu dipastikan berfungsi: mengirim judul lengkap, DOI, abstrak artikel ke API convert-to-bab
-2. **Generate BAB dari artikel** — saat tombol ditekan, Gemini/NVIDIA/OpenRouter harus generate draft BAB (sesuai nomor bab yang dipilih) berdasarkan **isi artikel** (judul + abstrak + rangkuman), bukan hanya membuat kerangka kosong
-3. **Penyimpanan hasil generate** — hasil draft bisa langsung muncul di halaman Writing (sebagai bab baru) ATAU disimpan dulu sebagai draft dengan tombol "Simpan BAB" tergantung tingkat kesulitan implementasi
+**✅ Semua 3 sub-task Perbaikan "Jadikan BAB":**
+
+1. **Tombol "Jadikan BAB" di card artikel tersimpan** — sudah berfungsi: mengirim `literatureId`, `babNumber`, dan `judulSkripsi` yang diisi user ke API ✅
+2. **Generate BAB dengan AI** — fungsi `generateBabFromLiterature()` di `lib/ai.ts`:
+   - AI baca judul + abstrak + rangkuman artikel
+   - Generate draft 400-800 kata dengan narasi akademik utuh per bab
+   - **Prompt berbeda per bab**: Bab 1 (Pendahuluan), Bab 2 (Tinjauan Pustaka), Bab 3 (Metodologi), Bab 4 (Hasil & Pembahasan), Bab 5 (Kesimpulan)
+   - Bahasa Indonesia akademik, sitasi (Penulis, Tahun), format paragraf
+   - Fallback: jika AI gagal, tetap buat draft minimal (bukan error mentah) ✅
+3. **Penyimpanan hasil generate** — draft langsung disimpan ke tabel `bab`:
+   - Jika bab sudah ada → append sebagai section baru
+   - Jika belum → buat bab baru dengan judul `"Bab N — Label — Judul Skripsi"`
+   - **Auto-redirect** ke halaman Writing (`/dashboard/writing?bab=xxx`) setelah 2 detik ✅
+   - Writing Page auto-edit bab yang baru dibuat via URL param `bab`
+
+**✅ UI Dialog Baru "Jadikan BAB":**
+- Input **Judul Skripsi** wajib diisi (dipakai AI untuk konteks)
+- Tombol 1-5 dengan label: Pendahuluan, Tinjauan Pustaka, dll
+- Info panel: "Yang akan terjadi" — transparan ke user
+- Loading animasi bouncing dots saat AI menulis
+- Success message hijau + redirect counter
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~99%** 🚀
+**Commit**: `906ab63` — push to `origin main` ✅
+
+---
+
+### 📋 Agenda Sesi Selanjutnya
 
 **⚪ SECONDARY:**
 - Implementasi request coalescing untuk mengurangi redundant API call
