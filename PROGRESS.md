@@ -553,6 +553,20 @@ TOTAL: ████████████████████████�
 
 ---
 
+### 🗓️ Sesi 14 Juli 2026 (Malam) — Supabase Dead Code Cleanup
+
+**✅ Hapus dead code & tambah missing types:**
+- Hapus `autoConfirmUser()` di `lib/supabase-admin.ts` — tidak dipakai sejak flow email confirmation wajib (Issue #1)
+- Hapus `cleanupExpiredRateLimits()` di `lib/rate-limit.ts` — tidak pernah dipanggil (harus pake pg_cron/Vercel Cron)
+- Hapus `enrichPapers()` di `lib/literature.ts` — batch enrich tidak dipakai
+- Hapus `supabase/migration_bab_rls.sql` — **redundan** (RLS `bab` sudah ada di `migration.sql` baris 146-150)
+- Tambah type `SummaryCache` & `EnrichmentCache` di `types/index.ts`
+- Registrasi `summary_cache` & `enrichment_cache` di `Database` type definition (type safety lengkap untuk upsert/select)
+- **Build & Lint**: 0 errors, 0 warnings ✅
+- **Commit**: `4792153` — push to `origin main` ✅
+
+---
+
 ### 📋 Agenda Sesi Selanjutnya
 
 **⚪ SECONDARY:**
