@@ -184,27 +184,3 @@ export async function enrichPaper(doi: string): Promise<EnrichedPaper | null> {
 
   return result
 }
-
-/**
- * Batch enrich untuk multiple DOIs (sequential dengan delay kecil)
- * Gunakan untuk pre-fetch di background kalau perlu
- */
-export async function enrichPapers(dois: string[]): Promise<Map<string, EnrichedPaper>> {
-  const results = new Map<string, EnrichedPaper>()
-  const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-  for (let i = 0; i < dois.length; i++) {
-    const doi = dois[i]
-    try {
-      const enriched = await enrichPaper(doi)
-      if (enriched) results.set(doi, enriched)
-    } catch (err) {
-      console.warn(`[BatchEnrich] Failed ${doi}:`, err)
-    }
-
-    // Small delay untuk hormati rate limit (khususnya Unpaywall ~1 req/s)
-    if (i < dois.length - 1) await delay(200)
-  }
-
-  return results
-}

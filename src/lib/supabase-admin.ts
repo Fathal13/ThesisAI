@@ -25,27 +25,3 @@ export async function getSupabaseAdmin() {
     },
   })
 }
-
-/**
- * Auto-confirm user email setelah signup.
- * Workaround untuk masalah email confirmation Supabase yang sering gagal di free tier.
- */
-export async function autoConfirmUser(userId: string) {
-  try {
-    const supabaseAdmin = await getSupabaseAdmin()
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      email_confirm: true,
-    })
-
-    if (error) {
-      console.error("[supabase-admin] Auto-confirm failed:", error.message)
-      return { success: false, reason: error.message }
-    }
-
-    console.log(`[supabase-admin] User ${userId} auto-confirmed successfully`)
-    return { success: true }
-  } catch (err) {
-    console.error("[supabase-admin] Auto-confirm error:", err)
-    return { success: false, reason: "unknown" }
-  }
-}

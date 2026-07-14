@@ -71,6 +71,33 @@ export interface SidangQuestion {
 }
 
 // ──────────────────────────────────────────
+//  Summary Cache (AI Rangkuman)
+// ──────────────────────────────────────────
+
+export interface SummaryCache {
+  id: string
+  user_id: string
+  article_identifier: string
+  title: string
+  rangkuman: LiteratureSummary
+  created_at: string
+  updated_at: string
+}
+
+// ──────────────────────────────────────────
+//  Enrichment Cache (Literature Enrichment)
+// ──────────────────────────────────────────
+
+export interface EnrichmentCache {
+  id: number
+  user_id: string
+  doi: string
+  enrichment_data: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+// ──────────────────────────────────────────
 //  Progress / Dashboard
 // ──────────────────────────────────────────
 export interface Progress {
@@ -133,6 +160,16 @@ export type Database = {
           reset_at?: string
           created_at?: string
         }
+      }
+      summary_cache: {
+        Row: SummaryCache
+        Insert: Omit<SummaryCache, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<SummaryCache, "id" | "user_id">>
+      }
+      enrichment_cache: {
+        Row: EnrichmentCache
+        Insert: Omit<EnrichmentCache, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<EnrichmentCache, "id" | "user_id">>
       }
     }
     Views: Record<string, unknown>

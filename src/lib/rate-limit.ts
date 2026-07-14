@@ -47,25 +47,6 @@ async function setRateLimitEntry(key: string, count: number, resetAt: number): P
 }
 
 /**
- * Cleanup expired entries — call periodically or on demand
- * Di production bisa pakai pg_cron atau Vercel Cron
- */
-export async function cleanupExpiredRateLimits(): Promise<number> {
-  const supabaseAdmin = await getSupabaseAdmin()
-  const now = new Date().toISOString()
-  const { count, error } = await supabaseAdmin
-    .from("rate_limit")
-    .delete()
-    .lt("reset_at", now)
-
-  if (error) {
-    console.error("[rate-limit] Cleanup error:", error.message)
-    return 0
-  }
-  return count ?? 0
-}
-
-/**
  * Cek rate limit untuk sebuah key (IP / email / userID)
  * Menggunakan Supabase sebagai persistent store
  *
