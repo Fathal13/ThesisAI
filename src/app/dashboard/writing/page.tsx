@@ -263,9 +263,13 @@ export default function WritingPage() {
                   <SelectTrigger id="nomor_bab" className="group-hover:border-primary/50 transition-colors">
                     <SelectValue placeholder="Pilih bab" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-auto">
                     {BAB_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
+                      <SelectItem
+                        key={opt.value}
+                        value={opt.value}
+                        className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                      >
                         {opt.label}
                       </SelectItem>
                     ))}
