@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
+import { generateBabFromLiterature } from "@/lib/ai"
 
 export async function POST(req: Request) {
   try {
@@ -39,40 +40,47 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Literatur tidak ditemukan" }, { status: 404 })
     }
 
-    // Generate draft untuk bab
-    const rangkumanSection = lit.rangkuman ? `
+    // Generate draft BAB menggunakan AI
+    let draftContent: string
+    try {
+      draftContent = await generateBabFromLiterature(
+        lit.judul,
+        lit.abstrak,
+        lit.rangkuman as { problem: string; method: string; result: string; gap: string } | null,
+        babNumber,
+        judulSkripsi,
+        lit.penulis,
+        lit.tahun,
+      )
+    } catch (aiError) {
+      console.error("[Convert to Bab] AI error:", aiError)
+      // Fallback: buat draft minimal jika AI gagal
+      const rangkumanSection = lit.rangkuman ? `
 ### Ringkasan Artikel (AI)
-**Masalah**: ${lit.rangkuman.problem}
-**Metode**: ${lit.rangkuman.method}
-**Hasil**: ${lit.rangkuman.result}
-**Gap**: ${lit.rangkuman.gap}
+**Masalah**: ${(lit.rangkuman as any).problem}
+**Metode**: ${(lit.rangkuman as any).method}
+**Hasil**: ${(lit.rangkuman as any).result}
+**Gap**: ${(lit.rangkuman as any).gap}
 ` : lit.abstrak ? `
 ### Abstrak
 ${lit.abstrak}
 ` : ""
 
-    const draftContent = `
+      draftContent = `
 ## ${lit.judul}
 
 ### Referensi Utama
-- **Judul**: ${lit.judul}
 - **Penulis**: ${lit.penulis}
 - **Tahun**: ${lit.tahun ?? "N/A"}
 - **DOI**: ${lit.doi ?? "N/A"}
-- **Link**: ${lit.link ?? "N/A"}
 
 ${rangkumanSection}
 
-### Ide untuk Bab ${babNumber} - ${judulSkripsi}
-<!-- Tulis ide pengembangan bab di sini berdasarkan artikel ini -->
-- Poin 1: ...
-- Poin 2: ...
-- Poin 3: ...
-
 ---
 
-*Draft otomatis dibuat dari literatur tersimpan. Silakan edit dan kembangkan.*
-    `.trim()
+*Gagal generate dengan AI. Silakan edit manual.*
+      `.trim()
+    }
 
     // Cek apakah bab sudah ada
     const { data: existingBab } = await supabase
@@ -94,11 +102,12 @@ ${rangkumanSection}
       return NextResponse.json({ success: true, appended: true, babId: existingBab.id })
     } else {
       // Buat bab baru
+      const judulBab = BAB_LABELS[babNumber as keyof typeof BAB_LABELS] ?? `Bab ${babNumber}`
       const { data: newBab, error: createError } = await supabase
         .from("bab")
         .insert({
           user_id: session.user.id,
-          judul: `Bab ${babNumber} - ${judulSkripsi}`,
+          judul: `${judulBab} — ${judulSkripsi}`,
           nomor_bab: babNumber,
           konten: draftContent,
           status: "draft",
@@ -116,4 +125,12 @@ ${rangkumanSection}
       { status: 500 },
     )
   }
+}
+
+const BAB_LABELS: Record<number, string> = {
+  1: "Bab 1 — Pendahuluan",
+  2: "Bab 2 — Tinjauan Pustaka",
+  3: "Bab 3 — Metodologi Penelitian",
+  4: "Bab 4 — Hasil dan Pembahasan",
+  5: "Bab 5 — Kesimpulan dan Saran",
 }

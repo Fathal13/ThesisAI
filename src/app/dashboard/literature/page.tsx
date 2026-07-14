@@ -131,8 +131,9 @@ export default function LiteraturePage() {
   // Convert to bab state
   const [convertToBab, setConvertToBab] = useState<{ id: string; judul: string } | null>(null)
   const [convertBabNumber, setConvertBabNumber] = useState(2)
+  const [convertJudulSkripsi, setConvertJudulSkripsi] = useState("")
   const [converting, setConverting] = useState(false)
-  const [convertSuccess, setConvertSuccess] = useState<string | null>(null)
+  const [convertSuccess, setConvertSuccess] = useState<{ message: string; babId: string } | null>(null)
 
   // ─── Search ───
 
@@ -349,7 +350,10 @@ export default function LiteraturePage() {
   // ─── Convert to Bab ───
 
   async function handleConvertToBab() {
-    if (!convertToBab) return
+    if (!convertToBab || !convertJudulSkripsi.trim()) {
+      alert("Masukkan judul skripsi terlebih dahulu")
+      return
+    }
     setConverting(true)
     setConvertSuccess(null)
     try {
@@ -359,7 +363,7 @@ export default function LiteraturePage() {
         body: JSON.stringify({
           literatureId: convertToBab.id,
           babNumber: convertBabNumber,
-          judulSkripsi: "Skripsi",
+          judulSkripsi: convertJudulSkripsi.trim(),
         }),
       })
       const data = await res.json()
@@ -367,13 +371,19 @@ export default function LiteraturePage() {
         alert(data.error ?? "Gagal membuat draft bab")
         return
       }
-      setConvertSuccess(`Draft berhasil ditambahkan ke Bab ${convertBabNumber}!`)
-      setTimeout(() => setConvertSuccess(null), 3000)
+      setConvertSuccess({
+        message: `Draft berhasil ${data.appended ? "ditambahkan ke" : "dibuat di"} Bab ${convertBabNumber}!`,
+        babId: data.babId,
+      })
+      // Auto-redirect ke Writing page setelah 2 detik
+      setTimeout(() => {
+        window.location.href = `/dashboard/writing?bab=${data.babId}`
+      }, 2000)
     } catch {
       alert("Gagal membuat draft bab. Coba lagi.")
     } finally {
       setConverting(false)
-      setConvertToBab(null)
+      // Jangan reset convertToBab di sini biar user bisa lihat success message
     }
   }
 
@@ -717,8 +727,9 @@ export default function LiteraturePage() {
 
           {/* Success message convert */}
           {convertSuccess && (
-            <div className="p-3 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 text-sm">
-              ✅ {convertSuccess}
+            <div className="p-4 rounded-lg bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-900/50 text-green-800 dark:text-green-400 text-sm space-y-2">
+              <p>✅ {convertSuccess.message}</p>
+              <p className="text-xs opacity-75">Mengarahkan ke halaman Writing...</p>
             </div>
           )}
 
@@ -811,50 +822,101 @@ export default function LiteraturePage() {
       </Tabs>
 
       {/* ─── CONVERT TO BAB DIALOG ─── */}
-      {convertToBab && (
+      {convertToBab && !converting && !convertSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6 space-y-4">
-            <h3 className="text-lg font-semibold">Jadikan Draft BAB</h3>
-            <p className="text-sm text-muted-foreground">
-              Buat draft dari literatur:
-            </p>
-            <p className="text-sm font-medium line-clamp-2">{convertToBab.judul}</p>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6 space-y-5">
+            <h3 className="text-lg font-semibold">Jadikan Draft BAB dengan AI</h3>
+
+            <div className="space-y-1.5">
+              <p className="text-sm text-muted-foreground">Artikel referensi:</p>
+              <p className="text-sm font-medium line-clamp-2 bg-muted/50 rounded-lg p-3">{convertToBab.judul}</p>
+            </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Masukkan ke BAB nomor:</label>
+              <label className="text-sm font-medium">Judul Skripsimu</label>
+              <Input
+                placeholder="Misal: Pengaruh AI terhadap Kinerja Karyawan"
+                value={convertJudulSkripsi}
+                onChange={(e) => setConvertJudulSkripsi(e.target.value)}
+                aria-label="Judul skripsi"
+              />
+              <p className="text-xs text-muted-foreground">Judul ini akan dipakai AI untuk menulis draft bab yang sesuai.</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Target BAB nomor:</label>
               <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((num) => (
+                {[
+                  { num: 1, label: "Pendahuluan" },
+                  { num: 2, label: "Tinjauan Pustaka" },
+                  { num: 3, label: "Metodologi" },
+                  { num: 4, label: "Hasil & Pembahasan" },
+                  { num: 5, label: "Kesimpulan" },
+                ].map(({ num, label }) => (
                   <button
                     key={num}
                     onClick={() => setConvertBabNumber(num)}
                     className={cn(
-                      "flex-1 py-2 rounded-lg text-sm font-medium transition-colors",
+                      "flex flex-1 flex-col items-center py-2.5 px-1 rounded-lg text-xs font-medium transition-colors border",
                       convertBabNumber === num
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted hover:bg-muted/80",
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground border-border",
                     )}
                   >
-                    {num}
+                    <span className="text-sm font-bold">{num}</span>
+                    <span>{label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+              <p className="font-medium">⚡ Yang akan terjadi:</p>
+              <ol className="list-decimal list-inside space-y-0.5 opacity-80">
+                <li>AI akan membaca judul, abstrak, dan rangkuman artikel</li>
+                <li>AI menulis draft bab skripsi berdasarkan artikel ini (±400-800 kata)</li>
+                <li>Draft disimpan otomatis sebagai bab baru di halaman Writing</li>
+                <li>Kamu bisa langsung edit draftnya di sana</li>
+              </ol>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
               <Button
                 variant="outline"
                 onClick={() => {
                   setConvertToBab(null)
                   setConvertBabNumber(2)
+                  setConvertJudulSkripsi("")
                 }}
-                disabled={converting}
               >
                 Batal
               </Button>
-              <Button onClick={handleConvertToBab} disabled={converting}>
-                {converting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                {converting ? "Membuat..." : "Buat Draft"}
+              <Button onClick={handleConvertToBab} disabled={!convertJudulSkripsi.trim()}>
+                <Sparkles className="size-4 mr-2" />
+                Generate Draft
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading state for convert */}
+      {converting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-md w-full mx-4 p-8 space-y-4 text-center">
+            <Loader2 className="size-10 animate-spin text-primary mx-auto" />
+            <p className="font-semibold text-lg">AI sedang menulis draft...</p>
+            <p className="text-sm text-muted-foreground">
+              AI membaca artikel dan menulis draft bab {convertBabNumber} berdasarkan referensi ini.
+            </p>
+            <div className="flex justify-center gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="size-2 rounded-full bg-primary animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
             </div>
           </div>
         </div>

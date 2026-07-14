@@ -444,6 +444,84 @@ Buat bervariasi kategorinya. Gunakan Bahasa Indonesia. Berikan jawaban yang akad
 // ──────────────────────────────────────────
 
 // ──────────────────────────────────────────
+//  Literature — Generate draft BAB dari artikel
+// ──────────────────────────────────────────
+
+const BAB_PROMPTS: Record<number, string> = {
+  1: `Pendahuluan (latar belakang, rumusan masalah, tujuan penelitian, manfaat penelitian).
+Fokus: jelaskan konteks riset berdasarkan artikel ini, rumuskan masalah penelitian yang relevan, dan tetapkan tujuan yang bisa dicapai.`,
+  2: `Tinjauan Pustaka (landasan teori, penelitian terdahulu, kerangka berpikir).
+Fokus: jabarkan teori-teori utama dari artikel ini, posisikan artikel ini dalam konteks penelitian terdahulu, dan jelaskan bagaimana artikel ini mendukung kerangka berpikir skripsi.`,
+  3: `Metodologi Penelitian (pendekatan, metode, teknik pengumpulan data, analisis).
+Fokus: jelaskan metode yang digunakan di artikel ini sebagai referensi, bandingkan dengan metode alternatif, dan berikan rekomendasi pendekatan yang sesuai untuk skripsi.`,
+  4: `Hasil dan Pembahasan (temuan utama, interpretasi, implikasi).
+Fokus: uraikan temuan utama artikel, bahas implikasinya terhadap topik skripsi, dan kaitkan dengan konteks yang lebih luas.`,
+  5: `Kesimpulan dan Saran (ringkasan temuan, kontribusi, keterbatasan, saran riset lanjutan).
+Fokus: rangkum kontribusi artikel, identifikasi keterbatasannya sebagai celah riset, dan berikan saran untuk penelitian selanjutnya.`,
+}
+
+export async function generateBabFromLiterature(
+  literatureJudul: string,
+  literatureAbstrak: string | null,
+  literatureRangkuman: { problem: string; method: string; result: string; gap: string } | null,
+  babNumber: number,
+  judulSkripsi: string,
+  penulis: string,
+  tahun: number | null,
+): Promise<string> {
+  const babFocus = BAB_PROMPTS[babNumber] ?? "Tinjauan Pustaka"
+
+  const rangkumanText = literatureRangkuman
+    ? `
+### Ringkasan Artikel (AI)
+- **Masalah:** ${literatureRangkuman.problem}
+- **Metode:** ${literatureRangkuman.method}
+- **Hasil:** ${literatureRangkuman.result}
+- **Gap:** ${literatureRangkuman.gap}
+`
+    : ""
+
+  const abstrakText = literatureAbstrak
+    ? `\n### Abstrak\n${literatureAbstrak}`
+    : ""
+
+  const prompt = `
+Anda adalah asisten akademik yang membantu mahasiswa menulis skripsi. Tugas Anda adalah membuat draft BAB SKRIPSI berdasarkan satu artikel ilmiah referensi.
+
+### Tugas
+Buat draft BAB ${babNumber} untuk skripsi dengan judul: "${judulSkripsi}"
+
+### Artikel Referensi
+- **Judul:** ${literatureJudul}
+- **Penulis:** ${penulis}
+- **Tahun:** ${tahun ?? "N/A"}
+${rangkumanText}${abstrakText}
+
+### Fokus Bab ${babNumber}
+${babFocus}
+
+### Aturan Penting
+1. Tulis dalam Bahasa Indonesia akademik yang formal dan jelas
+2. Panjang: 400-800 kata (sekitar 2-4 paragraf)
+3. Gunakan artikel ini sebagai referensi utama — kutip dengan (Penulis, Tahun) di tempat yang relevan
+4. Jangan menyalin mentah abstrak — kembangkan menjadi narasi bab yang utuh
+5. Akhiri dengan kalimat transisi ke bab berikutnya (jika relevan)
+6. Gunakan format paragraf yang rapi (bukan bullet points)
+7. JANGAN gunakan markdown atau format JSON — langsung teks paragraf biasa
+8. Cantumkan footnote/daftar pustaka di bagian bawah jika ada sitasi dari artikel ini
+
+### Output
+Teks draft BAB ${babNumber} yang siap diedit mahasiswa. Langsung mulai dengan konten bab, tanpa kata pengantar.
+`
+
+  const { text } = await withFallbackAndRetry((model) =>
+    generateText({ model, prompt }),
+  )
+
+  return text.trim()
+}
+
+// ──────────────────────────────────────────
 //  Literature — Ekstraksi kata kunci pencarian
 // ──────────────────────────────────────────
 

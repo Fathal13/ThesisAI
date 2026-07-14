@@ -71,6 +71,21 @@ export default function WritingPage() {
     status: "draft" as Bab["status"],
   })
 
+  // Auto-open bab from URL param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const babId = params.get("bab")
+    if (babId) {
+      // Will trigger after fetchBab loads
+      setTimeout(() => {
+        const targetBab = babList.find((b) => b.id === babId)
+        if (targetBab) {
+          editBab(targetBab)
+        }
+      }, 500)
+    }
+  }, [babList])
+
   const fetchBab = async () => {
     try {
       const { supabase } = await import("@/lib/supabase")
