@@ -178,7 +178,7 @@ export default function SidangPage() {
   const [judulSkripsi, setJudulSkripsi] = useState("")
   const [questions, setQuestions] = useState<Question[]>([])
   const [loading, setLoading] = useState(false)
-  const [loadingBab, setLoadingBab] = useState(true)
+    const [loadingBab, setLoadingBab] = useState(true)
   const [error, setError] = useState("")
   const [expandedQ, setExpandedQ] = useState<number | null>(null)
   const [evaluating, setEvaluating] = useState<number | null>(null)
@@ -203,7 +203,35 @@ export default function SidangPage() {
     } catch {}
   }
 
-  useEffect(() => { fetchBab(); fetchProgress() } // eslint-disable-line react-hooks/set-state-in-effect
+  async function fetchSavedQuestions() {
+    try {
+      const { supabase } = await import("@/lib/supabase")
+      const { data } = await supabase
+        .from("sidang_questions")
+        .select("*")
+        .order("created_at", { ascending: true })
+
+      const items = data as unknown as Array<Record<string, unknown>>
+      if (items && items.length > 0) {
+        setQuestions(items.map((q) => ({
+          id: q.id as string,
+          question: q.pertanyaan as string,
+          category: q.kategori as "Metodologi" | "Teori" | "Hasil" | "Impak",
+          sampleAnswer: (q.jawaban_ai as string) ?? "",
+          userAnswer: (q.user_answer as string) ?? "",
+          favorit: (q.favorit as boolean) ?? false,
+          mastered: (q.mastered as boolean) ?? false,
+        })))
+        // Auto-select bab dari pertanyaan terakhir
+        const lastQ = items[items.length - 1]
+        if (lastQ.bab_id) {
+          setSelectedBab(lastQ.bab_id as string)
+        }
+      }
+    } catch {}
+  }
+
+  useEffect(() => { fetchBab(); fetchProgress(); fetchSavedQuestions() } // eslint-disable-line react-hooks/set-state-in-effect
   , [])
 
   async function handleGenerate() {
@@ -344,14 +372,24 @@ export default function SidangPage() {
             ) : (
               <Select value={selectedBab} onValueChange={(v) => setSelectedBab(v ?? "")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pilih bab yang mau dijadikan pertanyaan" />
+                  <SelectValue placeholder="Pilih bab yang mau dijadikan pertanyaan">
+                    {selectedBab && babList.find((b) => b.id === selectedBab)
+                      ? `Bab ${babList.find((b) => b.id === selectedBab)!.nomor_bab} — ${babList.find((b) => b.id === selectedBab)!.judul}`
+                      : "Pilih bab yang mau dijadikan pertanyaan"}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-auto">
                   {babList.length === 0 ? (
                     <SelectItem value="-" disabled>Tulis bab dulu di halaman Writing</SelectItem>
                   ) : (
                     babList.map((bab) => (
-                      <SelectItem key={bab.id} value={bab.id}>Bab {bab.nomor_bab} — {bab.judul}</SelectItem>
+                      <SelectItem
+                        key={bab.id}
+                        value={bab.id}
+                        className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                      >
+                        Bab {bab.nomor_bab} — {bab.judul}
+                      </SelectItem>
                     ))
                   )}
                 </SelectContent>
