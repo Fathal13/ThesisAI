@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
-import { checkLoginRateLimit, checkSignupRateLimit } from "@/lib/rate-limit"
+import { checkLoginRateLimit, checkSignupRateLimit, checkRateLimit } from "@/lib/rate-limit"
 
 const CSRF_TOKEN_NAME = "csrf_token"
 
@@ -66,7 +66,14 @@ export async function POST(request: NextRequest) {
     }
 
     // ───── CSRF ─────
-    if (action === "signin" || action === "signup") {
+    // Terapkan CSRF check untuk SEMUA action yang mutation (signin, signup,
+    // forgot-password, reset-password, resend-confirmation, signout) —
+    // cegah attacker memicu action auth tanpa sepengetahuan user.
+    const csrfProtectedActions: typeof action[] = [
+      "signin", "signup", "forgot-password", "reset-password",
+      "resend-confirmation", "signout",
+    ]
+    if (action && csrfProtectedActions.includes(action)) {
       const csrfCookie = request.cookies.get(CSRF_TOKEN_NAME)?.value
       const csrfHeader = request.headers.get("x-csrf-token")
       if (csrfCookie && csrfHeader && csrfCookie !== csrfHeader) {
@@ -115,6 +122,12 @@ export async function POST(request: NextRequest) {
       const emailErr = validateEmail(normalizedEmail)
       if (emailErr) return respond({ error: emailErr }, 400)
 
+      // Rate limit: max 3 request per email per hour
+      const resendCheck = await checkRateLimit(`resend:${normalizedEmail}`, 3, 3_600_000)
+      if (!resendCheck.allowed) {
+        return respond({ error: "Terlalu banyak permintaan. Coba lagi nanti.", retryAfter: Math.ceil(resendCheck.resetIn / 1000) }, 429)
+      }
+
       const { error } = await supabase.auth.resend({ type: "signup", email: normalizedEmail })
       if (error) return respond({ error: "Gagal mengirim ulang email. Coba lagi nanti." }, 500)
 
@@ -127,6 +140,13 @@ export async function POST(request: NextRequest) {
       if (emailErr) return respond({ error: emailErr }, 400)
 
       const normalizedEmail = email.toLowerCase()
+
+      // Rate limit: max 2 request per email per hour (prevent email spam)
+      const forgotCheck = await checkRateLimit(`forgot:${normalizedEmail}`, 2, 3_600_000)
+      if (!forgotCheck.allowed) {
+        return respond({ error: "Terlalu banyak permintaan reset. Coba lagi nanti.", retryAfter: Math.ceil(forgotCheck.resetIn / 1000) }, 429)
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: `${request.nextUrl.origin}/auth/login?reset=true`,
       })
