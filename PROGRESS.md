@@ -692,6 +692,23 @@ TOTAL: ████████████████████████�
 
 ---
 
+### 🗓️ Sesi 17 Juli 2026 (Lanjutan) — Ponytail Refactor & Non-JSON Fallback Fix
+
+**✅ Root Cause:**
+- Dead code di `generateParaphraseAlternatives()`: cek `!startsWith("{")` tapi tubuhnya cuma komentar — **tidak throw**
+- Provider lemah return teks biasa → `safeJsonParse` return null → UI "Tidak ada alternatif"
+
+**✅ Ponytail Refactor (-70 lines, +1 guard):**
+- Hapus `fuzzyMatchKeys()` (36 lines), `extractNonJsonAlternatives()` (38 lines), `isErrorText()` dari safeJsonParse
+- **1 guard:** `if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) throw` — fallback chain retry provider berikutnya
+- Fix: `extractChangedWords()` push cleaned word (alfanumerik) bukan raw → AI key matching work
+- Fix: `buildFinalText()` hapus regex escaping tidak perlu
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~99%** 🚀
+
+---
+
 ### 🗓️ Sesi 17 Juli 2026 — Async Queue AI Summarize + Pagination Koleksi
 
 **✅ Implementasi Async Queue untuk AI Summarize**
@@ -715,11 +732,11 @@ TOTAL: ████████████████████████�
 
 | Masalah | Prioritas | Status | Detail |
 |---------|-----------|--------|--------|
-| **Parafrase Terpandu JSON Parse Error** | 🔴 **HIGH** | ✅ **SELESAI** | AI provider (fallback gratis) kadang return error string "An error occurred..." sebagai 200 OK, bukan JSON. Fix: `isErrorText()` deteksi error patterns di safeJsonParse, `fuzzyMatchKeys()` untuk key matching toleran, `extractNonJsonAlternatives()` sebagai fallback ekstraksi non-JSON. |
+| **Parafrase Terpandu — tidak ada kata berubah** | 🔴 **HIGH** | **BARU** | `extractChangedWords()` membandingkan token original vs hasil parafrase. Jika AI hanya mengubah sedikit kata (sinonim dekat), hampir semua token cocok → list changedWords kosong → wizard tampil "Tidak ada kata yang berubah". Root cause: pendekatan token-based diff terlalu sederhana. |
+| **Jadikan BAB — hasil generate berbahasa Inggris** | 🔴 **HIGH** | **BARU** | `generateBabFromLiterature()` di lib/ai.ts menggunakan prompt yang memerintahkan "Bahasa Indonesia akademik" tapi AI tetap output Inggris jika referensi jurnal berbahasa Inggris. Perlu penguatan instruksi bahasa dan pasca-proses verifikasi. |
 | **Session Rotation / Idle Timeout** | 🟡 **MEDIUM** | OPEN | Cek refresh token rotation & idle timeout settings di Supabase Dashboard |
 | **User langsung masuk dashboard sebelum konfirmasi email** | 🔴 **HIGH** | OPEN | Supabase auto-confirm workaround bikin user langsung login tanpa konfirmasi email. Perlu ganti flow: kirim email konfirmasi standar, block akses dashboard sampai email confirmed |
 | **Link konfirmasi email Supabase arahkan ke localhost** | 🟡 **MEDIUM** | OPEN | Di Supabase Dashboard → Auth → URL Configuration, set Site URL ke production (thesisai.vercel.app), tambah Redirect URLs untuk localhost dev |
-| **Tambah jurnal ilmiah di pencarian literatur** | 🟡 **MEDIUM** | OPEN | CrossRef `type` filter: tambah `journal-article`, `journal`, `proceedings-article`, `book-chapter` dsb. Saat ini hanya `article` generic |
 | **No 2FA/MFA** | 🔵 **LOW** | FUTURE | Hanya email/password. Tambah TOTP (Google Authenticator) opsional |
 | **Login Notifications** | 🔵 **LOW** | FUTURE | User tidak tahu login baru dari device/location berbeda |
 | **Account Lockout** | 🔵 **LOW** | FUTURE | Cuma rate limit, tidak ada lockout permanen/cooldown panjang |
@@ -729,8 +746,9 @@ TOTAL: ████████████████████████�
 ### 📋 Agenda Sesi Selanjutnya
 
 **🔴 HIGH:**
+- ⬜ Fix Parafrase Terpandu — tidak ada kata berubah (diff terlalu sederhana)
+- ⬜ Fix Jadikan BAB — paksa output Bahasa Indonesia meski referensi Inggris
 - ⬜ (selesai) Fix Parafrase Terpandu — JSON parse error di `generateParaphraseAlternatives()`
-- Investigasi root cause: apakah Gemini return error string? Tambah guard di safeJsonParse.
 
 **⚪ SECONDARY:**
 - (selesai) Implementasi async queue untuk AI summarize
