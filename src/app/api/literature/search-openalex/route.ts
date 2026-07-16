@@ -4,8 +4,8 @@ import { searchOpenAlex } from "@/lib/openalex"
 // ─── Fetch Configuration ───
 // OpenAlex max per-page = 200, max page = 50
 // Kita ambil beberapa halaman pertama (paling relevan) sekaligus via parallel fetch
-const MAX_CACHE_FETCH_PAGES = 3 // ambil 3 halaman × 200 = 600 artikel
-const MAX_CACHE_SIZE = MAX_CACHE_FETCH_PAGES * 200
+const MAX_CACHE_FETCH_PAGES = 5 // ambil 5 halaman × 200 = 1000 artikel
+const MAX_CACHE_SIZE = 800 // simpan 800 teratas (buang 200 paling irrelevant)
 
 // ─── Relevance Scoring ───
 // Skor = berapa banyak token signifikan dari query yang muncul di title (bobot 10) + abstract (bobot 5)
