@@ -78,6 +78,12 @@ function computeRelevanceScore(
   return { ...item, _relevanceScore: normalizedScore, _matchedTokens: matchedTokens }
 }
 
+// ─── Inflight request coalescing ───
+// Mencegah duplicate fetch ke OpenAlex ketika banyak user mencari query
+// yang sama secara simultan. Request ke-2+ join promise yang sudah ada
+// daripada membuat fetch baru.
+const INFLIGHT_REQUESTS = new Map<string, Promise<void>>()
+
 // ─── In-memory search cache ───
 // Hash(query + journalOnly) → { results, totalRaw, _ts }
 // Cache TTL 10 menit, cleanup tiap 5 menit.
@@ -157,28 +163,61 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Minimal 3 karakter" }, { status: 400 })
   }
 
+  // ─── Request Coalescing ───
+  // Key untuk coalescing: query + journalOnly (minScore & page tidak mempengaruhi fetch)
+  const coalesceKey = `${query.toLowerCase().trim()}|${journalOnly}`
+
+  // Cek apakah sudah ada request inflight untuk query yang sama
+  const existingPromise = INFLIGHT_REQUESTS.get(coalesceKey)
+  if (existingPromise) {
+    console.log(`[Coalesce] Join existing request for "${query}" (journalOnly: ${journalOnly})`)
+    await existingPromise
+    // Setelah promise selesai, cache sudah terisi → lanjut ke return biasa
+  } else {
+    // Buat promise baru untuk fetch & cache
+    const promise = (async () => {
+      const cacheKey = makeCacheKey(query, journalOnly)
+      let cached = SEARCH_CACHE.get(cacheKey)
+
+      // Refresh cache hanya saat page 0 (pencarian baru)
+      if (!cached || page === 0) {
+        console.log(`[OpenAlex] Fetching ${MAX_CACHE_FETCH_PAGES} pages (${MAX_CACHE_SIZE} max) for "${query}"`)
+
+        const { results, total } = await fetchMultiPageOpenAlex(query, journalOnly, MAX_CACHE_FETCH_PAGES)
+
+        // Score setiap hasil berdasarkan overlap token dengan query
+        const scored = results.map((item) => computeRelevanceScore(item, query))
+
+        // Urutkan: relevance score desc, lalu tahun desc
+        scored.sort((a, b) => {
+          const scoreDiff = b._relevanceScore - a._relevanceScore
+          if (scoreDiff !== 0) return scoreDiff
+          return (b.year ?? 0) - (a.year ?? 0)
+        })
+
+        SEARCH_CACHE.set(cacheKey, { results: scored, totalRaw: total, _ts: Date.now() })
+        cached = SEARCH_CACHE.get(cacheKey)!
+      }
+    })()
+
+    INFLIGHT_REQUESTS.set(coalesceKey, promise)
+    try {
+      await promise
+    } finally {
+      // Hapus dari map setelah selesai (success/error)
+      INFLIGHT_REQUESTS.delete(coalesceKey)
+    }
+  }
+
   try {
     const cacheKey = makeCacheKey(query, journalOnly)
-    let cached = SEARCH_CACHE.get(cacheKey)
+    const cached = SEARCH_CACHE.get(cacheKey)
 
-    // Refresh cache hanya saat page 0 (pencarian baru)
-    if (!cached || page === 0) {
-      console.log(`[OpenAlex] Fetching ${MAX_CACHE_FETCH_PAGES} pages (${MAX_CACHE_SIZE} max) for "${query}"`)
-
-      const { results, total } = await fetchMultiPageOpenAlex(query, journalOnly, MAX_CACHE_FETCH_PAGES)
-
-      // Score setiap hasil berdasarkan overlap token dengan query
-      const scored = results.map((item) => computeRelevanceScore(item, query))
-
-      // Urutkan: relevance score desc, lalu tahun desc
-      scored.sort((a, b) => {
-        const scoreDiff = b._relevanceScore - a._relevanceScore
-        if (scoreDiff !== 0) return scoreDiff
-        return (b.year ?? 0) - (a.year ?? 0)
-      })
-
-      SEARCH_CACHE.set(cacheKey, { results: scored, totalRaw: total, _ts: Date.now() })
-      cached = SEARCH_CACHE.get(cacheKey)!
+    if (!cached) {
+      return NextResponse.json(
+        { error: "Gagal memproses pencarian. Coba lagi nanti." },
+        { status: 500 },
+      )
     }
 
     const allResults = cached.results
