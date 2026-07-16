@@ -486,6 +486,60 @@ Aturan PENTING:
   return result.trim()
 }
 
+export async function generateParaphraseAlternatives(
+  originalText: string,
+  paraphrasedText: string,
+  changedWords: string[],
+): Promise<Record<string, string[]>> {
+  const existingKeys = changedWords.filter((w) => w.length >= 3)
+  if (existingKeys.length === 0) return {}
+
+  const wordList = existingKeys.map((w, i) => `${i + 1}. "${w}"`).join("\n")
+
+  const prompt = `
+Anda adalah asisten akademik yang membantu mahasiswa memilih sinonim akademik.
+
+Konteks — Teks asli:
+"""${originalText}"""
+
+Konteks — Teks parafrase:
+"""${paraphrasedText}"""
+
+Untuk SETIAP kata dalam daftar berikut, berikan 4 sinonim DALAM BAHASA INDONESIA yang sesuai dengan konteks akademik skripsi.
+Sinonim harus bisa menggantikan kata tersebut di dalam teks parafrase di atas.
+
+Kata-kata:
+${wordList}
+
+Aturan:
+- Sinonim harus BAHASA INDONESIA akademik yang baku dan formal
+- Setiap sinonim harus tepat secara konteks dalam kalimat
+- Jangan ubah istilah teknis yang sudah baku
+
+PENTING: Output HANYA JSON, tanpa markdown, tanpa penjelasan. Format:
+{
+  "alternatives": {
+    "${existingKeys[0] || "kata"}": ["sinonim1", "sinonim2", "sinonim3", "sinonim4"],
+    ...
+  }
+}
+`
+
+  const { text } = await withFallbackAndRetry((model) =>
+    generateText({ model, prompt, temperature: 0.4 }),
+  )
+
+  const parsed = safeJsonParse(text, {} as Record<string, unknown>)
+  if (typeof parsed === "object" && !Array.isArray(parsed)) {
+    const alt = (parsed as Record<string, unknown>).alternatives
+    if (alt && typeof alt === "object" && !Array.isArray(alt)) {
+      return alt as Record<string, string[]>
+    }
+    return parsed as Record<string, string[]>
+  }
+  return {}
+}
+
 // ──────────────────────────────────────────
 //  Literature — Generate draft BAB dari artikel
 // ──────────────────────────────────────────

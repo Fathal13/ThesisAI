@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import type { Bab as BabType } from "@/types"
-import { Edit3, Loader2, Sparkles, Trash2, FileText, AlertCircle, Check, X, ChevronDown } from "lucide-react"
+import { Edit3, Loader2, Sparkles, Trash2, FileText, AlertCircle, Check, X, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -54,6 +54,37 @@ const BAB_OPTIONS = [
   { value: "5", label: "Bab 5 — Kesimpulan" },
 ]
 
+// ─── Paraphrase Wizard Types ───
+interface ParaphraseWord {
+  word: string
+  alternatives: string[]
+  selectedIndex: number // -1 = gunakan hasil parafrase asli
+}
+
+interface ParaphraseWizardState {
+  isOpen: boolean
+  originalText: string
+  paraphrasedText: string
+  style: "akademik" | "lebih-formal" | "ubah-struktur"
+  words: ParaphraseWord[]
+  currentIndex: number
+  alternativesLoading: boolean
+  error: string | null
+}
+
+function initialWizardState(): ParaphraseWizardState {
+  return {
+    isOpen: false,
+    originalText: "",
+    paraphrasedText: "",
+    style: "akademik",
+    words: [],
+    currentIndex: 0,
+    alternativesLoading: false,
+    error: null,
+  }
+}
+
 export default function WritingPage() {
   const [babList, setBabList] = useState<Bab[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,12 +95,15 @@ export default function WritingPage() {
   const [showReview, setShowReview] = useState<string | null>(null)
   const [uploadLoading, setUploadLoading] = useState(false)
 
-  // ─── Paraphrase state ───
+  // ─── Paraphrase state (old full-replace) ───
   const [paraphraseLoading, setParaphraseLoading] = useState(false)
   const [showParaphraseModal, setShowParaphraseModal] = useState(false)
   const [paraphraseStyle, setParaphraseStyle] = useState<"akademik" | "lebih-formal" | "ubah-struktur">("akademik")
   const [paraphraseResult, setParaphraseResult] = useState<string | null>(null)
   const [paraphraseOriginal, setParaphraseOriginal] = useState("")
+
+  // ─── Paraphrase Wizard state ───
+  const [wizard, setWizard] = useState<ParaphraseWizardState>(initialWizardState)
 
   const [form, setForm] = useState({
     judul: "",
@@ -79,8 +113,6 @@ export default function WritingPage() {
     status: "draft" as Bab["status"],
   })
 
-  // Auto-open bab from URL param (useEffect on mount + callback ke setBabList)
-  // Ref to store target bab id so we can reference it inside setState callback
   const openBabRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -100,13 +132,11 @@ export default function WritingPage() {
         .order("nomor_bab", { ascending: true })
 
       if (!err && data) {
-        // Check if we need to auto-open a specific bab
         const targetId = openBabRef.current
         if (targetId) {
           const babArr = data as BabType[]
           const targetBab = babArr.find((b) => b.id === targetId)
           if (targetBab) {
-            // Set editing state directly from fetched data
             setEditingId(targetBab.id)
             setForm({
               judul: targetBab.judul,
@@ -117,7 +147,6 @@ export default function WritingPage() {
             })
             setReview(null)
             openBabRef.current = null
-            // Clean up URL
             window.history.replaceState({}, "", "/dashboard/writing")
           }
         }
@@ -147,10 +176,10 @@ export default function WritingPage() {
     }
 
     if (editingId) {
-      const { error: err } = await (supabase.from("bab") as any).update(payload).eq("id", editingId) // eslint-disable-line @typescript-eslint/no-explicit-any
+      const { error: err } = await (supabase.from("bab") as any).update(payload).eq("id", editingId)
       if (err) { setError(err.message); return }
     } else {
-      const { error: err } = await (supabase.from("bab") as any).insert(payload) // eslint-disable-line @typescript-eslint/no-explicit-any
+      const { error: err } = await (supabase.from("bab") as any).insert(payload)
       if (err) { setError(err.message); return }
     }
 
@@ -173,7 +202,7 @@ export default function WritingPage() {
   async function handleDelete(id: string) {
     if (!confirm("Hapus bab ini?")) return
     const { supabase } = await import("@/lib/supabase")
-    await (supabase.from("bab") as any).delete().eq("id", id) // eslint-disable-line @typescript-eslint/no-explicit-any
+    await (supabase.from("bab") as any).delete().eq("id", id)
     if (editingId === id) resetForm()
     fetchBab()
   }
@@ -203,11 +232,9 @@ export default function WritingPage() {
       }
 
       setReview(data)
-      // Update status ke "review"
       const { supabase } = await import("@/lib/supabase")
-      await (supabase.from("bab") as any).update({ status: "review" }).eq("id", bab.id) // eslint-disable-line @typescript-eslint/no-explicit-any
+      await (supabase.from("bab") as any).update({ status: "review" }).eq("id", bab.id)
 
-      // Recalculate progress
       try { await fetch("/api/progress/recalculate", { method: "POST" }) } catch { /* skip */ }
 
       fetchBab()
@@ -218,7 +245,7 @@ export default function WritingPage() {
     }
   }
 
-  // ─── Paraphrase handler ───
+  // ─── Paraphrase (Full Replace) ───
   async function handleParaphrase() {
     if (!form.konten.trim()) return
     setParaphraseLoading(true)
@@ -262,21 +289,159 @@ export default function WritingPage() {
     setParaphraseOriginal("")
   }
 
+  // ─── Paraphrase Wizard Functions ───
+  async function openWizard() {
+    if (!form.konten.trim()) return
+    setWizard(prev => ({ ...prev, ...initialWizardState(), isOpen: true, originalText: form.konten, style: paraphraseStyle }))
+    setParaphraseLoading(true)
+    setError("")
+
+    try {
+      const res = await fetch("/api/ai/paraphrase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: form.konten, style: paraphraseStyle }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Gagal memparafrase")
+
+      setWizard(prev => ({ ...prev, paraphrasedText: data.result, isOpen: true }))
+      // Fetch alternatives
+      await fetchAlternatives(data.result)
+    } catch (err: any) {
+      setError(err.message ?? "Gagal memparafrase. Coba lagi.")
+    } finally {
+      setParaphraseLoading(false)
+    }
+  }
+
+  async function fetchAlternatives(paraphrasedText: string) {
+    setWizard(prev => ({ ...prev, alternativesLoading: true, error: null }))
+
+    // Ekstrak kata yang berubah (highlighted)
+    const changedWords = extractChangedWords(wizard.originalText, paraphrasedText)
+
+    if (changedWords.length === 0) {
+      // Tidak ada kata berubah - langsung buat word list kosong
+      setWizard(prev => ({ ...prev, words: [], alternativesLoading: false }))
+      return
+    }
+
+    try {
+      const res = await fetch("/api/ai/paraphrase-alternatives", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalText: wizard.originalText,
+          paraphrasedText,
+          changedWords,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Gagal mengambil alternatif")
+
+      // Buat word objects dengan alternatives
+      const words: ParaphraseWord[] = changedWords.map((word) => ({
+        word,
+        alternatives: data.alternatives?.[word] || [],
+        selectedIndex: -1, // -1 = pakai hasil parafrase asli
+      }))
+
+      setWizard(prev => ({ ...prev, words, alternativesLoading: false }))
+    } catch (err: any) {
+      setWizard(prev => ({ ...prev, alternativesLoading: false, error: err.message }))
+    }
+  }
+
+  function extractChangedWords(original: string, result: string): string[] {
+    const originalTokens = new Set(
+      original.split(/\s+/).map(w => w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()).filter(Boolean),
+    )
+    const resultWords = result.split(/(\s+)/)
+    const changed: string[] = []
+
+    for (const word of resultWords) {
+      const clean = word.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
+      if (!clean || /^\s+$/.test(word) || clean.length < 3 || /^\d+$/.test(clean)) continue
+      if (!originalTokens.has(clean)) {
+        // Cek duplikat
+        if (!changed.some(c => c.toLowerCase() === clean)) {
+          changed.push(word)
+        }
+      }
+    }
+    return changed
+  }
+
+  function selectAlternative(altIndex: number) {
+    setWizard(prev => {
+      const newWords = [...prev.words]
+      newWords[prev.currentIndex] = {
+        ...newWords[prev.currentIndex],
+        selectedIndex: altIndex,
+      }
+      return { ...prev, words: newWords }
+    })
+  }
+
+  function nextWord() {
+    setWizard(prev => {
+      if (prev.currentIndex < prev.words.length - 1) {
+        return { ...prev, currentIndex: prev.currentIndex + 1 }
+      }
+      return prev
+    })
+  }
+
+  function prevWord() {
+    setWizard(prev => {
+      if (prev.currentIndex > 0) {
+        return { ...prev, currentIndex: prev.currentIndex - 1 }
+      }
+      return prev
+    })
+  }
+
+  function buildFinalText(): string {
+    // Rekonstruksi teks dari original dengan mengganti kata berubah
+    let text = wizard.paraphrasedText
+    for (const w of wizard.words) {
+      if (w.selectedIndex >= 0 && w.alternatives[w.selectedIndex]) {
+        // Replace kata di teks
+        const regex = new RegExp(`\\b${w.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "g")
+        text = text.replace(regex, w.alternatives[w.selectedIndex])
+      }
+    }
+    return text
+  }
+
+  function applyWizardResult() {
+    const finalText = buildFinalText()
+    setForm(prev => ({ ...prev, konten: finalText }))
+    closeWizard()
+  }
+
+  function closeWizard() {
+    setWizard(initialWizardState())
+  }
+
   async function updateStatus(id: string, status: Bab["status"]) {
     const { supabase } = await import("@/lib/supabase")
-    await (supabase.from("bab") as any).update({ status }).eq("id", id) // eslint-disable-line @typescript-eslint/no-explicit-any
+    await (supabase.from("bab") as any).update({ status }).eq("id", id)
 
-    // Auto-update progress saat status berubah
     try {
       await fetch("/api/progress/recalculate", { method: "POST" })
-    } catch {
-      // Silently fail — progress tidak kritis
-    }
+    } catch { /* skip */ }
 
     fetchBab()
   }
 
   const formNomorBab = form.nomor_bab
+
+  // Current word for wizard
+  const currentWord = wizard.words[wizard.currentIndex]
 
   return (
     <div className="space-y-8">
@@ -381,7 +546,6 @@ export default function WritingPage() {
                     setError("Gagal memproses file. Coba copy-paste manual.")
                   } finally {
                     setUploadLoading(false)
-                    // Reset file input
                     e.target.value = ""
                   }
                 }}
@@ -413,23 +577,23 @@ export default function WritingPage() {
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Button type="submit">
                 {editingId ? "Update Bab" : "Simpan Bab"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleParaphrase}
-                disabled={!form.konten.trim() || paraphraseLoading}
+                onClick={openWizard}
+                disabled={!form.konten.trim() || paraphraseLoading || wizard.alternativesLoading}
                 className="gap-2"
               >
-                {paraphraseLoading ? (
+                {(paraphraseLoading || wizard.alternativesLoading) ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <Sparkles className="size-4" />
                 )}
-                Parafrase
+                Parafrase Terpandu
               </Button>
               <div className="flex items-center gap-1">
                 <Button
@@ -439,7 +603,7 @@ export default function WritingPage() {
                   onClick={() => setParaphraseStyle("akademik")}
                   className={cn("text-xs gap-1", paraphraseStyle === "akademik" && "ring-2 ring-primary")}
                   title="Gaya akademik formal"
-                  disabled={paraphraseLoading}
+                  disabled={paraphraseLoading || wizard.isOpen}
                 >
                   ✍️ Akademik
                 </Button>
@@ -450,7 +614,7 @@ export default function WritingPage() {
                   onClick={() => setParaphraseStyle("lebih-formal")}
                   className={cn("text-xs gap-1", paraphraseStyle === "lebih-formal" && "ring-2 ring-primary")}
                   title="Lebih formal dan baku"
-                  disabled={paraphraseLoading}
+                  disabled={paraphraseLoading || wizard.isOpen}
                 >
                   📝 Formal
                 </Button>
@@ -461,7 +625,7 @@ export default function WritingPage() {
                   onClick={() => setParaphraseStyle("ubah-struktur")}
                   className={cn("text-xs gap-1", paraphraseStyle === "ubah-struktur" && "ring-2 ring-primary")}
                   title="Ubah struktur kalimat"
-                  disabled={paraphraseLoading}
+                  disabled={paraphraseLoading || wizard.isOpen}
                 >
                   🔄 Struktur
                 </Button>
@@ -599,11 +763,10 @@ export default function WritingPage() {
         )}
       </div>
 
-      {/* ─── Paraphrase Modal ─── */}
+      {/* ─── Paraphrase Modal (Full Replace - Legacy) ─── */}
       {showParaphraseModal && paraphraseResult && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 pb-8 px-4 bg-black/50">
           <div className="bg-background rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-            {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="font-semibold text-lg flex items-center gap-2">
                 <Sparkles className="size-5 text-primary" />
@@ -617,7 +780,6 @@ export default function WritingPage() {
               </Button>
             </div>
 
-            {/* Body: diff view */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <p className="text-xs text-muted-foreground">
                 Teks yang <span className="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">disorot kuning</span> adalah kata yang berubah. Periksa sebelum menerapkan.
@@ -627,7 +789,6 @@ export default function WritingPage() {
               </div>
             </div>
 
-            {/* Footer */}
             <div className="flex items-center justify-end gap-3 p-4 border-t">
               <Button variant="outline" onClick={closeParaphraseModal}>
                 Batal
@@ -636,6 +797,165 @@ export default function WritingPage() {
                 <Check className="size-4" />
                 Terapkan Hasil
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Paraphrase Wizard Modal ─── */}
+      {wizard.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-2">
+                <Sparkles className="size-5 text-primary" />
+                <div>
+                  <h3 className="font-semibold text-lg">Parafrase Terpandu</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {wizard.style === "akademik" ? "Akademik" : wizard.style === "lebih-formal" ? "Formal" : "Ubah Struktur"}
+                    {wizard.words.length > 0 && ` · Kata ${wizard.currentIndex + 1} dari ${wizard.words.length}`}
+                  </p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={closeWizard}>
+                <X className="size-4" />
+              </Button>
+            </div>
+
+            {/* Progress bar */}
+            {wizard.words.length > 0 && (
+              <div className="px-4 py-2 border-b">
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${((wizard.currentIndex + 1) / wizard.words.length) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 text-right">
+                  {wizard.currentIndex + 1} / {wizard.words.length}
+                </p>
+              </div>
+            )}
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {wizard.alternativesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="size-8 animate-spin text-primary" />
+                  <p className="ml-3 text-muted-foreground">Mengambil alternatif kata...</p>
+                </div>
+              ) : wizard.error ? (
+                <div className="text-center py-8 text-destructive">
+                  <AlertCircle className="size-12 mx-auto mb-2" />
+                  <p>{wizard.error}</p>
+                  <Button variant="outline" className="mt-4" onClick={() => fetchAlternatives(wizard.paraphrasedText)}>
+                    Coba Lagi
+                  </Button>
+                </div>
+              ) : wizard.words.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Sparkles className="size-12 mx-auto mb-2 opacity-30" />
+                  <p>Tidak ada kata yang berubah. Hasil parafrase sudah optimal.</p>
+                  <Button className="mt-4" onClick={applyWizardResult}>
+                    Terapkan Hasil Parafrase
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Context preview */}
+                  <div className="bg-muted/50 rounded-lg p-4 text-sm leading-relaxed whitespace-pre-wrap border">
+                    <ContextPreview
+                      original={wizard.originalText}
+                      paraphrased={wizard.paraphrasedText}
+                      words={wizard.words}
+                      currentIndex={wizard.currentIndex}
+                    />
+                  </div>
+
+                  {/* Word selection */}
+                  <div className="space-y-4">
+                    <p className="font-medium flex items-center gap-2">
+                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-mono">
+                        "{currentWord?.word}"
+                      </span>
+                      <span className="text-muted-foreground">— pilih pengganti:</span>
+                    </p>
+
+                    <div className="flex flex-wrap gap-2">
+                      {/* Option: keep paraphrased (original AI choice) */}
+                      <Button
+                        variant={currentWord?.selectedIndex === -1 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => selectAlternative(-1)}
+                        className="gap-1 bg-primary/5 text-primary border-primary/20 hover:bg-primary/10"
+                      >
+                        <Check className="size-3.5" />
+                        Tetap: <span className="font-mono">{currentWord?.word}</span>
+                      </Button>
+
+                      {/* Alternatives */}
+                      {currentWord?.alternatives.map((alt, i) => (
+                        <Button
+                          key={i}
+                          variant={currentWord?.selectedIndex === i ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => selectAlternative(i)}
+                          className="gap-1"
+                        >
+                          {currentWord?.selectedIndex === i && <Check className="size-3.5" />}
+                          <span className="font-mono">{alt}</span>
+                        </Button>
+                      ))}
+
+                      {(!currentWord?.alternatives || currentWord?.alternatives.length === 0) && (
+                        <span className="text-xs text-muted-foreground self-center px-2 py-1 bg-muted rounded">
+                          Tidak ada alternatif — gunakan kata asli atau ketik manual
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Navigation */}
+                    <div className="flex items-center justify-between pt-4 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={prevWord}
+                        disabled={wizard.currentIndex === 0}
+                        className="gap-1"
+                      >
+                        <ChevronLeft className="size-3.5" />
+                        Prev
+                      </Button>
+
+                      <span className="text-sm text-muted-foreground">
+                        Kata {wizard.currentIndex + 1} dari {wizard.words.length}
+                      </span>
+
+                      {wizard.currentIndex < wizard.words.length - 1 ? (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={nextWord}
+                          className="gap-1"
+                        >
+                          Next <ChevronRight className="size-3.5" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={applyWizardResult}
+                          className="gap-2"
+                        >
+                          <Check className="size-3.5" />
+                          Terapkan Semua
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -651,14 +971,11 @@ export default function WritingPage() {
 function formatDateInput(date: string | Date | null | undefined): string {
   if (!date) return ""
   if (typeof date === "string") {
-    // Kalau udah YYYY-MM-DD, return langsung
     if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date
-    // Kalau string ISO: parse dulu
     const d = new Date(date)
     if (isNaN(d.getTime())) return ""
     return d.toISOString().split("T")[0]
   }
-  // Date object
   if (isNaN(date.getTime())) return ""
   return date.toISOString().split("T")[0]
 }
@@ -684,34 +1001,23 @@ function ReviewSection({ title, items, icon }: { title: string; items: string[];
 /**
  * Komponen diff: bandingkan teks original dengan hasil parafrase,
  * lalu sorot kata-kata yang berubah dengan background kuning.
- *
- * Cara kerja:
- * 1. Tokenisasi kedua teks per kata
- * 2. Iterasi original: jika kata berubah → sorot di hasil
- * 3. Kata baru yang tidak ada di original → juga disorot
  */
 function HighlightDiff({ original, result }: { original: string; result: string }) {
-  const originalWords = original.split(/(\s+)/)
-  const resultWords = result.split(/(\s+)/)
-
-  // Buat set kata dari original untuk deteksi kata baru
   const originalTokens = new Set(
-    original.split(/\s+/).map((w) => w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()).filter(Boolean),
+    original.split(/\s+/).map(w => w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()).filter(Boolean),
   )
+
+  const resultWords = result.split(/(\s+)/)
 
   return (
     <div className="space-y-1">
       {resultWords.map((word, i) => {
         const clean = word.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
         if (!clean || /^\s+$/.test(word)) {
-          // Whitespace — render apa adanya
           return <span key={i}>{word}</span>
         }
 
-        // Cek apakah kata ini ada di original
         const isChanged = !originalTokens.has(clean)
-
-        // Edge case: angka, kutipan, atau kata pendek (< 3 char) jangan disorot
         const shouldHighlight = isChanged && clean.length >= 3 && !/^\d+$/.test(clean)
 
         if (shouldHighlight) {
@@ -727,13 +1033,74 @@ function HighlightDiff({ original, result }: { original: string; result: string 
   )
 }
 
-/** Cari kata orisinal yang mirip (untuk tooltip) */
 function findOriginal(original: string, changedWord: string): string {
   const words = original.split(/\s+/)
   for (const w of words) {
     const clean = w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
     if (clean === changedWord) return w
-    // Levenshtein distance kecil? skip — cukup tampilkan "?"
   }
   return "?"
+}
+
+/**
+ * Preview konteks: tampilkan teks parafrase dengan kata saat ini disorot biru,
+ * kata lain yang berubah disorot kuning.
+ */
+function ContextPreview({
+  original,
+  paraphrased,
+  words,
+  currentIndex,
+}: {
+  original: string
+  paraphrased: string
+  words: ParaphraseWord[]
+  currentIndex: number
+}) {
+  // Buat set kata yang berubah (untuk highlighting kuning)
+  const changedWordsSet = new Set(words.map(w => w.word.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()))
+
+  // Kata saat ini
+  const currentWordClean = words[currentIndex]?.word.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
+
+  const resultWords = paraphrased.split(/(\s+)/)
+
+  return (
+    <div className="leading-relaxed">
+      {resultWords.map((word, i) => {
+        const clean = word.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
+        if (!clean || /^\s+$/.test(word)) {
+          return <span key={i}>{word}</span>
+        }
+
+        const isCurrent = clean === currentWordClean
+        const isChanged = changedWordsSet.has(clean)
+
+        if (isCurrent) {
+          return (
+            <span
+              key={i}
+              className="bg-blue-200 dark:bg-blue-800 rounded px-0.5 font-medium animate-pulse"
+              title="Kata yang sedang diedit"
+            >
+              {word}
+            </span>
+          )
+        }
+
+        if (isChanged) {
+          return (
+            <span
+              key={i}
+              className="bg-yellow-200 dark:bg-yellow-800 rounded px-0.5"
+              title="Kata yang berubah dari original"
+            >
+              {word}
+            </span>
+          )
+        }
+        return <span key={i}>{word}</span>
+      })}
+    </div>
+  )
 }
