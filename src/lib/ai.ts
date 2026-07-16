@@ -551,13 +551,10 @@ JANGAN gunakan format markdown, JANGAN tambahkan teks lain.`
 
   const { text } = await withFallbackAndRetry(async (model) => {
     const res = await generateText({ model, prompt, temperature: 0.4 })
-    // Throw on error text so the fallback chain retries next provider
-    if (isErrorText(res.text)) {
-      throw new Error(`Provider returned error text: ${res.text.slice(0, 100)}`)
-    }
-    // Throw if not JSON — same reason
-    if (!res.text.trim().startsWith("{") && !res.text.trim().startsWith("[")) {
-      // Might still be valid JSON wrapped in something — let safeJsonParse handle it
+    const trimmed = res.text.trim()
+    // ponytail: non-JSON text → throw so fallback chain retries next provider
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+      throw new Error(`Provider returned non-JSON response`)
     }
     return res
   })
