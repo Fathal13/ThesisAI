@@ -302,7 +302,7 @@ function safeJsonParse<T>(text: string, fallback: T): T {
   try {
     return JSON.parse(cleanJson(text))
   } catch {
-    console.warn(`[AI] JSON parse failed, text: ${text.slice(0, 200)}`)
+    console.warn(`[AI] JSON parse failed — using fallback`)
     return fallback
   }
 }
@@ -385,7 +385,6 @@ Maksimal 3 poin per kategori. Gunakan Bahasa Indonesia.
     generateText({ model, prompt }),
   )
 
-  console.log(`[AI] Raw review response (first 200): ${text.slice(0, 200)}`)
   return safeJsonParse(text, {
     grammar: ["Gagal menganalisis grammar"],
     wordChoice: ["Gagal menganalisis pilihan kata"],

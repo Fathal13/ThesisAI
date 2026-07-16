@@ -6,28 +6,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 const features = [
   {
     title: "Literatur Explorer",
-    description: "Cari + rangkum artikel ilmiah dari CrossRef dengan bantuan AI. Simpan koleksi literatur untuk Bab 2.",
+    description: "Cari + rangkum 250+ juta artikel Open Access dari OpenAlex. Akses PDF langsung, simpan ke koleksi, jadikan draft Bab 2.",
     icon: BookOpen,
     color: "text-blue-600 dark:text-blue-400",
     bg: "bg-blue-50 dark:bg-blue-950/40",
   },
   {
     title: "Writing Assistant",
-    description: "Tempel bab skripsimu, AI akan koreksi grammar, rekomendasi kata akademik, dan cek struktur tulisan.",
+    description: "Review bab skripsi: grammar, pilihan kata formal, struktur akademik, deteksi kalimat ambigu. Bukan nulis — cuma bantu revisi.",
     icon: Edit3,
     color: "text-emerald-600 dark:text-emerald-400",
     bg: "bg-emerald-50 dark:bg-emerald-950/40",
   },
   {
     title: "Sidang Prep",
-    description: "AI generate 10-15 pertanyaan sidang berdasarkan bab yang sudah kamu tulis. Lengkap dengan contoh jawaban.",
+    description: "AI generate pertanyaan sidang per kategori (Metodologi, Teori, Hasil, Impak). Simulasi jawaban + bandingkan dengan AI. Export PDF.",
     icon: Brain,
     color: "text-purple-600 dark:text-purple-400",
     bg: "bg-purple-50 dark:bg-purple-950/40",
   },
   {
     title: "Progress Tracker",
-    description: "Pantau progres skripsi per bab. Deadline countdown. Motivasi biar tetap semangat.",
+    description: "Progress per bab + timeline mingguan otomatis. Deadline countdown & reminder. Motivasi quotes harian.",
     icon: BarChart3,
     color: "text-orange-600 dark:text-orange-400",
     bg: "bg-orange-50 dark:bg-orange-950/40",
