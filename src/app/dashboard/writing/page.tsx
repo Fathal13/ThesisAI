@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import type { Bab as BabType } from "@/types"
-import { Edit3, Loader2, Sparkles, Trash2, FileText, AlertCircle } from "lucide-react"
+import { Edit3, Loader2, Sparkles, Trash2, FileText, AlertCircle, Check, X, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -63,6 +63,13 @@ export default function WritingPage() {
   const [reviewLoading, setReviewLoading] = useState(false)
   const [showReview, setShowReview] = useState<string | null>(null)
   const [uploadLoading, setUploadLoading] = useState(false)
+
+  // ─── Paraphrase state ───
+  const [paraphraseLoading, setParaphraseLoading] = useState(false)
+  const [showParaphraseModal, setShowParaphraseModal] = useState(false)
+  const [paraphraseStyle, setParaphraseStyle] = useState<"akademik" | "lebih-formal" | "ubah-struktur">("akademik")
+  const [paraphraseResult, setParaphraseResult] = useState<string | null>(null)
+  const [paraphraseOriginal, setParaphraseOriginal] = useState("")
 
   const [form, setForm] = useState({
     judul: "",
@@ -209,6 +216,50 @@ export default function WritingPage() {
     } finally {
       setReviewLoading(false)
     }
+  }
+
+  // ─── Paraphrase handler ───
+  async function handleParaphrase() {
+    if (!form.konten.trim()) return
+    setParaphraseLoading(true)
+    setParaphraseOriginal(form.konten)
+    setParaphraseResult(null)
+
+    try {
+      const res = await fetch("/api/ai/paraphrase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: form.konten, style: paraphraseStyle }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? "Gagal memparafrase")
+        return
+      }
+
+      setParaphraseResult(data.result)
+      setShowParaphraseModal(true)
+    } catch {
+      setError("Gagal memparafrase. Coba lagi.")
+    } finally {
+      setParaphraseLoading(false)
+    }
+  }
+
+  function applyParaphrase() {
+    if (paraphraseResult) {
+      setForm((prev) => ({ ...prev, konten: paraphraseResult }))
+      setParaphraseResult(null)
+      setParaphraseOriginal("")
+      setShowParaphraseModal(false)
+    }
+  }
+
+  function closeParaphraseModal() {
+    setShowParaphraseModal(false)
+    setParaphraseResult(null)
+    setParaphraseOriginal("")
   }
 
   async function updateStatus(id: string, status: Bab["status"]) {
@@ -366,6 +417,55 @@ export default function WritingPage() {
               <Button type="submit">
                 {editingId ? "Update Bab" : "Simpan Bab"}
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleParaphrase}
+                disabled={!form.konten.trim() || paraphraseLoading}
+                className="gap-2"
+              >
+                {paraphraseLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Sparkles className="size-4" />
+                )}
+                Parafrase
+              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setParaphraseStyle("akademik")}
+                  className={cn("text-xs gap-1", paraphraseStyle === "akademik" && "ring-2 ring-primary")}
+                  title="Gaya akademik formal"
+                  disabled={paraphraseLoading}
+                >
+                  ✍️ Akademik
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setParaphraseStyle("lebih-formal")}
+                  className={cn("text-xs gap-1", paraphraseStyle === "lebih-formal" && "ring-2 ring-primary")}
+                  title="Lebih formal dan baku"
+                  disabled={paraphraseLoading}
+                >
+                  📝 Formal
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setParaphraseStyle("ubah-struktur")}
+                  className={cn("text-xs gap-1", paraphraseStyle === "ubah-struktur" && "ring-2 ring-primary")}
+                  title="Ubah struktur kalimat"
+                  disabled={paraphraseLoading}
+                >
+                  🔄 Struktur
+                </Button>
+              </div>
               {editingId && (
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Batal
@@ -498,6 +598,48 @@ export default function WritingPage() {
           </div>
         )}
       </div>
+
+      {/* ─── Paraphrase Modal ─── */}
+      {showParaphraseModal && paraphraseResult && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 pb-8 px-4 bg-black/50">
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <Sparkles className="size-5 text-primary" />
+                Hasil Parafrase
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  ({paraphraseStyle === "akademik" ? "Akademik" : paraphraseStyle === "lebih-formal" ? "Formal" : "Ubah Struktur"})
+                </span>
+              </h3>
+              <Button variant="ghost" size="icon" onClick={closeParaphraseModal}>
+                <X className="size-4" />
+              </Button>
+            </div>
+
+            {/* Body: diff view */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Teks yang <span className="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">disorot kuning</span> adalah kata yang berubah. Periksa sebelum menerapkan.
+              </p>
+              <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                <HighlightDiff original={paraphraseOriginal} result={paraphraseResult} />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t">
+              <Button variant="outline" onClick={closeParaphraseModal}>
+                Batal
+              </Button>
+              <Button onClick={applyParaphrase} className="gap-2">
+                <Check className="size-4" />
+                Terapkan Hasil
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -537,4 +679,61 @@ function ReviewSection({ title, items, icon }: { title: string; items: string[];
       </ul>
     </div>
   )
+}
+
+/**
+ * Komponen diff: bandingkan teks original dengan hasil parafrase,
+ * lalu sorot kata-kata yang berubah dengan background kuning.
+ *
+ * Cara kerja:
+ * 1. Tokenisasi kedua teks per kata
+ * 2. Iterasi original: jika kata berubah → sorot di hasil
+ * 3. Kata baru yang tidak ada di original → juga disorot
+ */
+function HighlightDiff({ original, result }: { original: string; result: string }) {
+  const originalWords = original.split(/(\s+)/)
+  const resultWords = result.split(/(\s+)/)
+
+  // Buat set kata dari original untuk deteksi kata baru
+  const originalTokens = new Set(
+    original.split(/\s+/).map((w) => w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()).filter(Boolean),
+  )
+
+  return (
+    <div className="space-y-1">
+      {resultWords.map((word, i) => {
+        const clean = word.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
+        if (!clean || /^\s+$/.test(word)) {
+          // Whitespace — render apa adanya
+          return <span key={i}>{word}</span>
+        }
+
+        // Cek apakah kata ini ada di original
+        const isChanged = !originalTokens.has(clean)
+
+        // Edge case: angka, kutipan, atau kata pendek (< 3 char) jangan disorot
+        const shouldHighlight = isChanged && clean.length >= 3 && !/^\d+$/.test(clean)
+
+        if (shouldHighlight) {
+          return (
+            <span key={i} className="bg-yellow-200 dark:bg-yellow-800 rounded px-0.5" title={`Berubah dari "${findOriginal(original, clean)}"`}>
+              {word}
+            </span>
+          )
+        }
+        return <span key={i}>{word}</span>
+      })}
+    </div>
+  )
+}
+
+/** Cari kata orisinal yang mirip (untuk tooltip) */
+function findOriginal(original: string, changedWord: string): string {
+  const words = original.split(/\s+/)
+  for (const w of words) {
+    const clean = w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
+    if (clean === changedWord) return w
+    // Levenshtein distance kecil? skip — cukup tampilkan "?"
+  }
+  return "?"
 }

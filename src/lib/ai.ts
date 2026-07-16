@@ -443,6 +443,50 @@ Buat bervariasi kategorinya. Gunakan Bahasa Indonesia. Berikan jawaban yang akad
 // ──────────────────────────────────────────
 
 // ──────────────────────────────────────────
+//  Writing — Parafrase
+// ──────────────────────────────────────────
+
+export type ParaphraseStyle = "akademik" | "lebih-formal" | "ubah-struktur"
+
+export async function paraphraseText(
+  text: string,
+  style: ParaphraseStyle,
+): Promise<string> {
+  const styleLabels: Record<ParaphraseStyle, string> = {
+    akademik: "Gaya akademik formal dengan vocabulary ilmiah Indonesia yang baku",
+    "lebih-formal": "Lebih formal dan baku sesuai EYD V, cocok untuk skripsi",
+    "ubah-struktur": "Ubah struktur kalimat secara total dengan kosakata berbeda, makna tetap sama",
+  }
+
+  const prompt = `
+Anda adalah asisten akademik yang membantu mahasiswa memperbaiki tulisan skripsinya.
+
+Teks asli:
+"""
+${text}
+"""
+
+Tugas: Tulis ULANG teks di atas dengan gaya berikut:
+${styleLabels[style]}
+
+Aturan PENTING:
+1. JANGAN mengubah istilah teknis, nama, angka, kutipan, atau referensi spesifik
+2. JAGA makna dan fakta tetap persis sama
+3. Gunakan Bahasa Indonesia yang baik dan benar
+4. JANGAN tambahkan opini, analisis, atau konten baru
+5. Output HANYA teks hasil parafrase — tanpa markdown, tanpa penjelasan, tanpa label
+6. Jika ada bagian yang tidak bisa diparafrase, biarkan apa adanya
+7. Jangan mengubah struktur paragraf — output tetap sama panjangnya
+`
+
+  const { text: result } = await withFallbackAndRetry((model) =>
+    generateText({ model, prompt, temperature: 0.3 }),
+  )
+
+  return result.trim()
+}
+
+// ──────────────────────────────────────────
 //  Literature — Generate draft BAB dari artikel
 // ──────────────────────────────────────────
 
