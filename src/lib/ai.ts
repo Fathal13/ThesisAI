@@ -227,6 +227,18 @@ async function withFallbackAndRetry(fn: GenerateFn): Promise<{ text: string }> {
           throw err
         }
 
+        // Error text response (provider returns "An error occurred..." as 200 OK)
+        // Treat as server error → retry dulu, baru fallback
+        if (isErrorText(errMsg)) {
+          if (attempt < MAX_RETRIES) {
+            console.warn(`[AI] ${name} returned error text (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retry`)
+            continue
+          }
+          console.warn(`[AI] ${name} error text after ${MAX_RETRIES + 1}x retry — fallback: ${errMsg.slice(0, 80)}`)
+          errors.push({ provider: name, error: `Provider error: ${errMsg.slice(0, 100)}` })
+          break
+        }
+
         // Timeout — retry dulu
         if (isTimeoutError(err)) {
           if (attempt < MAX_RETRIES) {
@@ -283,23 +295,8 @@ async function withFallbackAndRetry(fn: GenerateFn): Promise<{ text: string }> {
 //  JSON helpers (unchanged)
 // ──────────────────────────────────────────
 
-function cleanJson(text: string): string {
-  // Remove markdown code blocks
-  let cleaned = text.replace(/```(json)?\n?/g, "").trim()
-
-  // Try to extract JSON object or array if there's extra text
-  // Match first { ... } or [ ... ]
-  if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
-    const objMatch = cleaned.match(/\{[\s\S]*\}/)
-    const arrMatch = cleaned.match(/\[[\s\S]*\]/)
-    cleaned = (objMatch || arrMatch)?.[0] ?? cleaned
-  }
-
-  return cleaned
-}
-
 /**
- * Deteksi apakah teks dari AI adalah pesan error (bukan JSON).
+ * Deteksi apakah teks dari AI adalah pesan error (bukan JSON valid).
  * Provider gratis kadang return "An error occurred..." sebagai 200 OK.
  */
 function isErrorText(text: string): boolean {
@@ -319,13 +316,17 @@ function isErrorText(text: string): boolean {
   return errorPatterns.some((p) => p.test(trimmed))
 }
 
-function safeJsonParse<T>(text: string, fallback: T): T {
-  // Cek apakah seluruh teks adalah pesan error (bukan JSON sama sekali)
-  if (isErrorText(text)) {
-    console.warn(`[AI] JSON parse — AI returned error text instead of JSON (${text.slice(0, 80)}...)`)
-    return fallback
+function cleanJson(text: string): string {
+  let cleaned = text.replace(/```(json)?\n?/g, "").trim()
+  if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
+    const objMatch = cleaned.match(/\{[\s\S]*\}/)
+    const arrMatch = cleaned.match(/\[[\s\S]*\]/)
+    cleaned = (objMatch || arrMatch)?.[0] ?? cleaned
   }
+  return cleaned
+}
 
+function safeJsonParse<T>(text: string, fallback: T): T {
   try {
     return JSON.parse(cleanJson(text))
   } catch {
@@ -548,103 +549,28 @@ Format WAJIB:
 {"alternatives":{"KATA_PERTAMA":["sinonim1","sinonim2","sinonim3","sinonim4"],"KATA_KEDUA":["sinonim1","sinonim2","sinonim3","sinonim4"]}}
 JANGAN gunakan format markdown, JANGAN tambahkan teks lain.`
 
-  const { text } = await withFallbackAndRetry((model) =>
-    generateText({ model, prompt, temperature: 0.4 }),
-  )
+  const { text } = await withFallbackAndRetry(async (model) => {
+    const res = await generateText({ model, prompt, temperature: 0.4 })
+    // Throw on error text so the fallback chain retries next provider
+    if (isErrorText(res.text)) {
+      throw new Error(`Provider returned error text: ${res.text.slice(0, 100)}`)
+    }
+    // Throw if not JSON — same reason
+    if (!res.text.trim().startsWith("{") && !res.text.trim().startsWith("[")) {
+      // Might still be valid JSON wrapped in something — let safeJsonParse handle it
+    }
+    return res
+  })
 
-  // Try standard JSON parse
   const parsed = safeJsonParse(text, null)
   if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
     const alt = (parsed as Record<string, unknown>).alternatives
     if (alt && typeof alt === "object" && !Array.isArray(alt)) {
-      return fuzzyMatchKeys(alt as Record<string, string[]>, existingKeys)
+      return alt as Record<string, string[]>
     }
-    // Maybe the AI returned flat object without "alternatives" wrapper
-    return fuzzyMatchKeys(parsed as Record<string, string[]>, existingKeys)
+    return parsed as Record<string, string[]>
   }
-
-  // Fallback: coba ekstrak dari format non-JSON (numbered list)
-  const extracted = extractNonJsonAlternatives(text, existingKeys)
-  if (Object.keys(extracted).length > 0) return extracted
-
   return {}
-}
-
-/**
- * Fuzzy-match keys dari AI response ke kata yang diminta.
- * AI mungkin mengubah casing atau strip tanda baca.
- */
-function fuzzyMatchKeys(
-  result: Record<string, string[]>,
-  expectedKeys: string[],
-): Record<string, string[]> {
-  const matched: Record<string, string[]> = {}
-
-  for (const expected of expectedKeys) {
-    const cleanExpected = expected.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
-
-    // Exact match first
-    if (result[expected]) {
-      matched[expected] = result[expected]
-      continue
-    }
-
-    // Fuzzy match: cari key yang mirip
-    let found = false
-    for (const [key, values] of Object.entries(result)) {
-      const cleanKey = key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
-      if (cleanKey === cleanExpected) {
-        matched[expected] = values
-        found = true
-        break
-      }
-    }
-
-    if (!found) {
-      matched[expected] = []
-    }
-  }
-
-  return matched
-}
-
-/**
- * Fallback: coba ekstrak alternatif kata dari format non-JSON.
- * Beberapa AI model (terutama yang kecil) mungkin return numbered list.
- */
-function extractNonJsonAlternatives(
-  text: string,
-  expectedKeys: string[],
-): Record<string, string[]> {
-  const result: Record<string, string[]> = {}
-  const lines = text.split("\n")
-
-  for (const key of expectedKeys) {
-    const cleanKey = key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
-    const synonyms: string[] = []
-
-    for (const line of lines) {
-      // Cari baris yang menyebut kata kunci
-      if (!line.toLowerCase().includes(cleanKey)) continue
-
-      // Ekstrak semua kata dalam tanda petik
-      const match = line.match(/"([^"]+)"/g)
-      if (match) {
-        for (const m of match) {
-          const word = m.replace(/"/g, "").trim()
-          if (word.toLowerCase() !== cleanKey && word.length >= 3) {
-            synonyms.push(word)
-          }
-        }
-      }
-    }
-
-    if (synonyms.length > 0) {
-      result[key] = [...new Set(synonyms)].slice(0, 4)
-    }
-  }
-
-  return result
 }
 
 // ──────────────────────────────────────────

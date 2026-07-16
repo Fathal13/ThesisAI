@@ -329,7 +329,7 @@ export default function WritingPage() {
       if (!clean || /^\s+$/.test(word) || clean.length < 3 || /^\d+$/.test(clean)) continue
       if (!originalTokens.has(clean)) {
         if (!changed.some(c => c.toLowerCase() === clean)) {
-          changed.push(word)
+          changed.push(clean) // ponytail: push cleaned word so AI key matches
         }
       }
     }
@@ -366,12 +366,11 @@ export default function WritingPage() {
   }
 
   function buildFinalText(): string {
-    // Rekonstruksi teks dari original dengan mengganti kata berubah
     let text = wizard.paraphrasedText
     for (const w of wizard.words) {
       if (w.selectedIndex >= 0 && w.alternatives[w.selectedIndex]) {
-        // Replace kata di teks
-        const regex = new RegExp(`\\b${w.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "g")
+        // ponytail: no regex escaping needed — words are alphanumeric only
+        const regex = new RegExp(`\\b${w.word}\\b`, "g")
         text = text.replace(regex, w.alternatives[w.selectedIndex])
       }
     }
