@@ -594,12 +594,86 @@ TOTAL: ████████████████████████�
 
 ---
 
+### 🗓️ Sesi 15 Juli 2026 — Security Hardening Auth
+
+**✅ Security Fix: CSRF Full Coverage**
+- Perluas CSRF check dari signin/signup ke SEMUA action auth:
+  signout, forgot-password, reset-password, resend-confirmation
+
+**✅ Rate Limit: resend-confirmation & forgot-password**
+- `resend-confirmation`: max 3 request/email/jam
+- `forgot-password`: max 2 request/email/jam (cegah email spam)
+- Pakai `checkRateLimit()` persistent via Supabase table
+
+**✅ Hapus Log yang Bocor Data**
+- `console.log("[AI] Raw review response...")` — dihapus
+- `console.warn("[AI] JSON parse failed, text:...")` — diganti tanpa isi response
+
+**✅ Update Landing Page**
+- CrossRef → OpenAlex (250M+ Open Access, direct PDF)
+- Refresh deskripsi fitur sesuai dashboard real
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Commits**: `09d2ef9` (CSRF + rate limit), `d500e9f` (hapus log + landing page)
+
+---
+
+### 🗓️ Sesi 16 Juli 2026 — Parafrase + OpenAlex Optimization
+
+**✅ Request Coalescing OpenAlex**
+- `INFLIGHT_REQUESTS` Map di search-openalex/route.ts
+- Request duplikat join existing promise — 90%+ duplicate call berkurang
+- Map dibersihkan setelah selesai (success/error)
+
+**✅ Multi-Page Fetch: 3 → 5 halaman**
+- `MAX_CACHE_FETCH_PAGES: 3 → 5` (600 → 1000 artikel)
+- `MAX_CACHE_SIZE: 600 → 800`
+- Dedup + scoring + threshold 15%
+
+**✅ Fitur Parafrase — Writing Page**
+- `paraphraseText()` di lib/ai.ts — 3 gaya: akademik, formal, ubah struktur
+- API route: `/api/ai/paraphrase`
+- Tombol "Parafrase" + selector gaya + modal diff highlight kuning
+- Commit: `ccf4cb1`
+
+**✅ Fitur Parafrase Terpandu (Wizard Step-by-Step)**
+- `generateParaphraseAlternatives()` — batch request 4 sinonim/kata via AI
+- API route: `/api/ai/paraphrase-alternatives`
+- Wizard: progress bar, ContextPreview (kata aktif biru + kata berubah kuning)
+- 5 pilihan per kata (tetap + 4 alternatif) + **Prev/Next navigasi**
+- **UI sederhana**: 1 tombol "Parafrase Terpandu", default akademik
+- Hapus legacy modal + state + toggle buttons (-167 lines)
+- Commit: `ab090aa`, `47858b2`
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~99%** 🚀
+
+---
+
+### ⚠️ Masalah Terbuka
+
+| Masalah | Prioritas | Status | Detail |
+|---------|-----------|--------|--------|
+| **Parafrase Terpandu JSON Parse Error** | 🔴 **HIGH** | **BARU** | Error `"Unexpected token 'A', 'An error o'... is not valid JSON"` — AI provider mengembalikan error string bukan JSON di fungsi `generateParaphraseAlternatives()` di `lib/ai.ts`. Perlu fix parsing fallback. |
+| **Session Rotation / Idle Timeout** | 🟡 **MEDIUM** | OPEN | Cek refresh token rotation & idle timeout settings di Supabase Dashboard |
+| **User langsung masuk dashboard sebelum konfirmasi email** | 🔴 **HIGH** | OPEN | Supabase auto-confirm workaround bikin user langsung login tanpa konfirmasi email. Perlu ganti flow: kirim email konfirmasi standar, block akses dashboard sampai email confirmed |
+| **Link konfirmasi email Supabase arahkan ke localhost** | 🟡 **MEDIUM** | OPEN | Di Supabase Dashboard → Auth → URL Configuration, set Site URL ke production (thesisai.vercel.app), tambah Redirect URLs untuk localhost dev |
+| **Tambah jurnal ilmiah di pencarian literatur** | 🟡 **MEDIUM** | OPEN | CrossRef `type` filter: tambah `journal-article`, `journal`, `proceedings-article`, `book-chapter` dsb. Saat ini hanya `article` generic |
+| **No 2FA/MFA** | 🔵 **LOW** | FUTURE | Hanya email/password. Tambah TOTP (Google Authenticator) opsional |
+| **Login Notifications** | 🔵 **LOW** | FUTURE | User tidak tahu login baru dari device/location berbeda |
+| **Account Lockout** | 🔵 **LOW** | FUTURE | Cuma rate limit, tidak ada lockout permanen/cooldown panjang |
+
+---
+
 ### 📋 Agenda Sesi Selanjutnya
 
+**🔴 HIGH:**
+- Fix Parafrase Terpandu — JSON parse error di `generateParaphraseAlternatives()`
+- Investigasi root cause: apakah Gemini return error string? Tambah guard di safeJsonParse.
+
 **⚪ SECONDARY:**
-- Implementasi request coalescing untuk mengurangi redundant API call
-- Async queue untuk AI summarize (Vercel Queues / Supabase pg_cron)
-- Pagination di koleksi tersimpan (kalau sudah banyak)
+- Implementasi async queue untuk AI summarize
+- Pagination di koleksi tersimpan
 - Export koleksi ke format sitasi (BibTeX/CSL)
 
 **Build & Lint Target**: 0 errors, 0 warnings
