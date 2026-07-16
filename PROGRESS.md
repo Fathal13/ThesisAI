@@ -594,6 +594,27 @@ TOTAL: ████████████████████████�
 
 ---
 
+### 🗓️ Sesi 16 Juli 2026 (Lanjutan) — Fix Parafrase JSON Parse Error
+
+**✅ Root Cause:**
+- AI provider fallback gratis (NVIDIA/OpenRouter/Groq) kadang return error string seperti *"An error occurred..."* sebagai HTTP 200 OK, bukan JSON.
+- `safeJsonParse()` tidak bisa parse → return `{}` kosong → wizard kehilangan alternatif kata.
+
+**✅ 3 Lapis Pertahanan:**
+1. **`isErrorText()`** — deteksi error patterns di `safeJsonParse()` sebelum mencoba parse
+2. **`fuzzyMatchKeys()`** — key matching toleran terhadap perubahan casing/tanda baca oleh AI
+3. **`extractNonJsonAlternatives()`** — fallback ekstraksi dari format numbered list non-JSON
+
+**✅ Bug Fix Lain:**
+- Race condition `wizard.originalText` di `fetchAlternatives()` — passing parameter eksplisit
+- Lint cleanup: unused imports (`useMemo`, `ArrowLeft`, `findOriginal`), `as any` eslints, unescaped entities
+- Type error `fetchAlternatives()` 2 argumen di tombol "Coba Lagi"
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~99%** 🚀
+
+---
+
 ### 🗓️ Sesi 15 Juli 2026 — Security Hardening Auth
 
 **✅ Security Fix: CSRF Full Coverage**
@@ -650,11 +671,51 @@ TOTAL: ████████████████████████�
 
 ---
 
+### 🗓️ Sesi 16 Juli 2026 (Lanjutan) — Fix Parafrase JSON Parse Error
+
+**✅ Root Cause:**
+- AI provider fallback gratis (NVIDIA/OpenRouter/Groq) kadang return error string seperti *"An error occurred..."* sebagai HTTP 200 OK, bukan JSON.
+- `safeJsonParse()` tidak bisa parse → return `{}` kosong → wizard kehilangan alternatif kata.
+
+**✅ 3 Lapis Pertahanan:**
+1. **`isErrorText()`** — deteksi error patterns di `safeJsonParse()` sebelum mencoba parse
+2. **`fuzzyMatchKeys()`** — key matching toleran terhadap perubahan casing/tanda baca oleh AI
+3. **`extractNonJsonAlternatives()`** — fallback ekstraksi dari format numbered list non-JSON
+
+**✅ Bug Fix Lain:**
+- Race condition `wizard.originalText` di `fetchAlternatives()` — passing parameter eksplisit
+- Lint cleanup: unused imports (`useMemo`, `ArrowLeft`, `findOriginal`), `as any` eslints, unescaped entities
+- Type error `fetchAlternatives()` 2 argumen di tombol "Coba Lagi"
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~99%** 🚀
+
+---
+
+### 🗓️ Sesi 17 Juli 2026 — Async Queue AI Summarize + Pagination Koleksi
+
+**✅ Implementasi Async Queue untuk AI Summarize**
+- Client-side queue di `src/lib/summarize-queue.ts` — memproses 1 request per waktu dengan delay 1.2s (aman untuk Gemini 60 RPM)
+- Singleton `summarizeQueue` dipakai oleh kedua tab (Cari & Koleksi) — antrian digabung
+- Real-time queue status indicator di UI (🕐 "Sedang memproses..." + "X antrean menunggu")
+- `handleSummarize` & `handleSummarizeFromCollection` diubah pakai `summarizeQueue.enqueue()` — user bisa klik banyak rangkum sekaligus, diproses berurutan
+
+**✅ Pagination di Koleksi Tersimpan**
+- 10 item per halaman (konstanta `COLLECTION_PAGE_SIZE`)
+- Page numbers + Previous/Next buttons di bawah list koleksi
+- Reset ke halaman 1 saat user mencari di kolom "Cari di koleksi..."
+- Badge info: "Menampilkan X dari Y literatur (halaman N dari M)"
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~99%** 🚀
+
+---
+
 ### ⚠️ Masalah Terbuka
 
 | Masalah | Prioritas | Status | Detail |
 |---------|-----------|--------|--------|
-| **Parafrase Terpandu JSON Parse Error** | 🔴 **HIGH** | **BARU** | Error `"Unexpected token 'A', 'An error o'... is not valid JSON"` — AI provider mengembalikan error string bukan JSON di fungsi `generateParaphraseAlternatives()` di `lib/ai.ts`. Perlu fix parsing fallback. |
+| **Parafrase Terpandu JSON Parse Error** | 🔴 **HIGH** | ✅ **SELESAI** | AI provider (fallback gratis) kadang return error string "An error occurred..." sebagai 200 OK, bukan JSON. Fix: `isErrorText()` deteksi error patterns di safeJsonParse, `fuzzyMatchKeys()` untuk key matching toleran, `extractNonJsonAlternatives()` sebagai fallback ekstraksi non-JSON. |
 | **Session Rotation / Idle Timeout** | 🟡 **MEDIUM** | OPEN | Cek refresh token rotation & idle timeout settings di Supabase Dashboard |
 | **User langsung masuk dashboard sebelum konfirmasi email** | 🔴 **HIGH** | OPEN | Supabase auto-confirm workaround bikin user langsung login tanpa konfirmasi email. Perlu ganti flow: kirim email konfirmasi standar, block akses dashboard sampai email confirmed |
 | **Link konfirmasi email Supabase arahkan ke localhost** | 🟡 **MEDIUM** | OPEN | Di Supabase Dashboard → Auth → URL Configuration, set Site URL ke production (thesisai.vercel.app), tambah Redirect URLs untuk localhost dev |
@@ -668,12 +729,12 @@ TOTAL: ████████████████████████�
 ### 📋 Agenda Sesi Selanjutnya
 
 **🔴 HIGH:**
-- Fix Parafrase Terpandu — JSON parse error di `generateParaphraseAlternatives()`
+- ⬜ (selesai) Fix Parafrase Terpandu — JSON parse error di `generateParaphraseAlternatives()`
 - Investigasi root cause: apakah Gemini return error string? Tambah guard di safeJsonParse.
 
 **⚪ SECONDARY:**
-- Implementasi async queue untuk AI summarize
-- Pagination di koleksi tersimpan
+- (selesai) Implementasi async queue untuk AI summarize
+- (selesai) Pagination di koleksi tersimpan
 - Export koleksi ke format sitasi (BibTeX/CSL)
 
-**Build & Lint Target**: 0 errors, 0 warnings
+**Build & Lint Target**: 0 errors, 0 warnings ✅

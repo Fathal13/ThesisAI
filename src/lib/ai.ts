@@ -298,7 +298,34 @@ function cleanJson(text: string): string {
   return cleaned
 }
 
+/**
+ * Deteksi apakah teks dari AI adalah pesan error (bukan JSON).
+ * Provider gratis kadang return "An error occurred..." sebagai 200 OK.
+ */
+function isErrorText(text: string): boolean {
+  const trimmed = text.trim()
+  if (trimmed.length < 20) return false
+  const errorPatterns = [
+    /^an? (error|exception)/i,
+    /^something (went wrong|unexpected)/i,
+    /^sorry/i,
+    /^i.{0,20}(can'?t|unable|couldn'?t|apologize)/i,
+    /^(error|exception|failed)/i,
+    /^too many (requests|tokens)/i,
+    /^(service|server|system).*(unavailable|error|busy)/i,
+    /^rate limit/i,
+    /^\[error\]/i,
+  ]
+  return errorPatterns.some((p) => p.test(trimmed))
+}
+
 function safeJsonParse<T>(text: string, fallback: T): T {
+  // Cek apakah seluruh teks adalah pesan error (bukan JSON sama sekali)
+  if (isErrorText(text)) {
+    console.warn(`[AI] JSON parse — AI returned error text instead of JSON (${text.slice(0, 80)}...)`)
+    return fallback
+  }
+
   try {
     return JSON.parse(cleanJson(text))
   } catch {
@@ -505,39 +532,119 @@ Konteks — Teks asli:
 Konteks — Teks parafrase:
 """${paraphrasedText}"""
 
-Untuk SETIAP kata dalam daftar berikut, berikan 4 sinonim DALAM BAHASA INDONESIA yang sesuai dengan konteks akademik skripsi.
-Sinonim harus bisa menggantikan kata tersebut di dalam teks parafrase di atas.
-
-Kata-kata:
+Kata-kata yang perlu dicarikan sinonim (gunakan NOMOR dan KATA PERSIS ini sebagai kunci JSON):
 ${wordList}
+
+Tugas: Untuk SETIAP kata di atas, berikan 4 sinonim DALAM BAHASA INDONESIA yang sesuai dengan konteks akademik skripsi. Sinonim harus bisa menggantikan kata tersebut di dalam teks parafrase di atas.
 
 Aturan:
 - Sinonim harus BAHASA INDONESIA akademik yang baku dan formal
 - Setiap sinonim harus tepat secara konteks dalam kalimat
 - Jangan ubah istilah teknis yang sudah baku
+- Kunci JSON HARUS persis sama dengan kata yang diberikan (termasuk huruf kapital jika ada)
 
-PENTING: Output HANYA JSON, tanpa markdown, tanpa penjelasan. Format:
-{
-  "alternatives": {
-    "${existingKeys[0] || "kata"}": ["sinonim1", "sinonim2", "sinonim3", "sinonim4"],
-    ...
-  }
-}
-`
+PENTING: Output HANYA SATU objek JSON, tanpa markdown, tanpa penjelasan.
+Format WAJIB:
+{"alternatives":{"KATA_PERTAMA":["sinonim1","sinonim2","sinonim3","sinonim4"],"KATA_KEDUA":["sinonim1","sinonim2","sinonim3","sinonim4"]}}
+JANGAN gunakan format markdown, JANGAN tambahkan teks lain.`
 
   const { text } = await withFallbackAndRetry((model) =>
     generateText({ model, prompt, temperature: 0.4 }),
   )
 
-  const parsed = safeJsonParse(text, {} as Record<string, unknown>)
-  if (typeof parsed === "object" && !Array.isArray(parsed)) {
+  // Try standard JSON parse
+  const parsed = safeJsonParse(text, null)
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
     const alt = (parsed as Record<string, unknown>).alternatives
     if (alt && typeof alt === "object" && !Array.isArray(alt)) {
-      return alt as Record<string, string[]>
+      return fuzzyMatchKeys(alt as Record<string, string[]>, existingKeys)
     }
-    return parsed as Record<string, string[]>
+    // Maybe the AI returned flat object without "alternatives" wrapper
+    return fuzzyMatchKeys(parsed as Record<string, string[]>, existingKeys)
   }
+
+  // Fallback: coba ekstrak dari format non-JSON (numbered list)
+  const extracted = extractNonJsonAlternatives(text, existingKeys)
+  if (Object.keys(extracted).length > 0) return extracted
+
   return {}
+}
+
+/**
+ * Fuzzy-match keys dari AI response ke kata yang diminta.
+ * AI mungkin mengubah casing atau strip tanda baca.
+ */
+function fuzzyMatchKeys(
+  result: Record<string, string[]>,
+  expectedKeys: string[],
+): Record<string, string[]> {
+  const matched: Record<string, string[]> = {}
+
+  for (const expected of expectedKeys) {
+    const cleanExpected = expected.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
+
+    // Exact match first
+    if (result[expected]) {
+      matched[expected] = result[expected]
+      continue
+    }
+
+    // Fuzzy match: cari key yang mirip
+    let found = false
+    for (const [key, values] of Object.entries(result)) {
+      const cleanKey = key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
+      if (cleanKey === cleanExpected) {
+        matched[expected] = values
+        found = true
+        break
+      }
+    }
+
+    if (!found) {
+      matched[expected] = []
+    }
+  }
+
+  return matched
+}
+
+/**
+ * Fallback: coba ekstrak alternatif kata dari format non-JSON.
+ * Beberapa AI model (terutama yang kecil) mungkin return numbered list.
+ */
+function extractNonJsonAlternatives(
+  text: string,
+  expectedKeys: string[],
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {}
+  const lines = text.split("\n")
+
+  for (const key of expectedKeys) {
+    const cleanKey = key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
+    const synonyms: string[] = []
+
+    for (const line of lines) {
+      // Cari baris yang menyebut kata kunci
+      if (!line.toLowerCase().includes(cleanKey)) continue
+
+      // Ekstrak semua kata dalam tanda petik
+      const match = line.match(/"([^"]+)"/g)
+      if (match) {
+        for (const m of match) {
+          const word = m.replace(/"/g, "").trim()
+          if (word.toLowerCase() !== cleanKey && word.length >= 3) {
+            synonyms.push(word)
+          }
+        }
+      }
+    }
+
+    if (synonyms.length > 0) {
+      result[key] = [...new Set(synonyms)].slice(0, 4)
+    }
+  }
+
+  return result
 }
 
 // ──────────────────────────────────────────

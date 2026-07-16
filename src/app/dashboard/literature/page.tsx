@@ -15,6 +15,7 @@ import {
   Unlock,
   PenLine,
   Filter,
+  Clock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +25,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { AcademicDisclaimerSimple } from "@/components/disclaimer"
+import { summarizeQueue, type QueueItemMeta } from "@/lib/summarize-queue"
 
 // ─── Types ───
 
@@ -131,6 +133,18 @@ export default function LiteraturePage() {
   const [convertJudulSkripsi, setConvertJudulSkripsi] = useState("")
   const [converting, setConverting] = useState(false)
   const [convertSuccess, setConvertSuccess] = useState<{ message: string; babId: string } | null>(null)
+
+  // ─── Queue state ───
+  const [queueSnapshot, setQueueSnapshot] = useState<QueueItemMeta[]>([])
+  useEffect(() => {
+    return summarizeQueue.subscribe(() => {
+      setQueueSnapshot([...summarizeQueue.getSnapshot()])
+    })
+  }, [])
+
+  const queueInfo = queueSnapshot.filter((q) => q.status === "pending")
+  const queueActiveLabel =
+    queueSnapshot.find((q) => q.status === "processing")?.label || null
 
   // ─── Search ───
 
@@ -317,23 +331,23 @@ export default function LiteraturePage() {
         }
       }
 
-      const res = await fetch("/api/literature/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: item.title,
-          abstract: abstractForAI,
-          doi: item.doi,
-          articleUrl: item.url,
-        }),
-      })
+      // Enqueue ke antrian daripada langsung fetch
+      const data = await summarizeQueue.enqueue(`Merangkum "${item.title.slice(0, 50)}..."`, async () => {
+        const res = await fetch("/api/literature/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: item.title,
+            abstract: abstractForAI,
+            doi: item.doi,
+            articleUrl: item.url,
+          }),
+        })
 
-      const data = await res.json()
-
-      if (!res.ok) {
-        setError(data.error ?? "Gagal merangkum")
-        return
-      }
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error ?? "Gagal merangkum")
+        return result
+      }) as Summary
 
       setSummaries((prev) => ({ ...prev, [item.title]: data }))
       setExpanded(item.title)
@@ -378,23 +392,23 @@ export default function LiteraturePage() {
         }
       }
 
-      const res = await fetch("/api/literature/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: item.judul,
-          abstract: abstractForAI,
-          doi: item.doi,
-          articleUrl: item.link,
-        }),
-      })
+      // Enqueue ke antrian daripada langsung fetch
+      const data = await summarizeQueue.enqueue(`Merangkum "${item.judul.slice(0, 50)}..."`, async () => {
+        const res = await fetch("/api/literature/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: item.judul,
+            abstract: abstractForAI,
+            doi: item.doi,
+            articleUrl: item.link,
+          }),
+        })
 
-      const data = await res.json()
-
-      if (!res.ok) {
-        setError(data.error ?? "Gagal merangkum")
-        return
-      }
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error ?? "Gagal merangkum")
+        return result
+      }) as Summary
 
       setSummaries((prev) => ({ ...prev, [item.judul]: data }))
       setExpanded(item.judul)
@@ -452,6 +466,16 @@ export default function LiteraturePage() {
     const q = collectionSearch.toLowerCase()
     return item.judul.toLowerCase().includes(q) || item.penulis.toLowerCase().includes(q)
   })
+
+  // ─── Collection Pagination ───
+  const COLLECTION_PAGE_SIZE = 10
+  const [collectionPage, setCollectionPage] = useState(0)
+  const totalCollectionPages = Math.max(1, Math.ceil(filteredCollection.length / COLLECTION_PAGE_SIZE))
+  const paginatedCollection = filteredCollection.slice(
+    collectionPage * COLLECTION_PAGE_SIZE,
+    (collectionPage + 1) * COLLECTION_PAGE_SIZE,
+  )
+    // Reset page when search/filter changes — handled in onChange below
 
   // ─── Render ───
 
@@ -538,6 +562,21 @@ export default function LiteraturePage() {
           {error && (
             <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
               {error}
+            </div>
+          )}
+
+          {/* Queue status */}
+          {(queueActiveLabel || queueInfo.length > 0) && (
+            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-lg px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
+              <Clock className="size-4 shrink-0 animate-pulse" />
+              <span>
+                {queueActiveLabel && (
+                  <><strong>Sedang memproses:</strong> {queueActiveLabel}</>
+                )}
+                {queueInfo.length > 0 && (
+                  <> · <strong>{queueInfo.length} antrean</strong> menunggu</>
+                )}
+              </span>
             </div>
           )}
 
@@ -771,13 +810,28 @@ export default function LiteraturePage() {
 
         {/* ─── TAB: KOLEKSI SAYA ─── */}
         <TabsContent value="koleksi" className="mt-6 space-y-6">
+          {/* Queue status */}
+          {(queueActiveLabel || queueInfo.length > 0) && (
+            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-lg px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
+              <Clock className="size-4 shrink-0 animate-pulse" />
+              <span>
+                {queueActiveLabel && (
+                  <><strong>Sedang memproses:</strong> {queueActiveLabel}</>
+                )}
+                {queueInfo.length > 0 && (
+                  <> · <strong>{queueInfo.length} antrean</strong> menunggu</>
+                )}
+              </span>
+            </div>
+          )}
+
           {/* Search koleksi */}
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder="Cari di koleksi..."
               value={collectionSearch}
-              onChange={(e) => setCollectionSearch(e.target.value)}
+              onChange={(e) => { setCollectionSearch(e.target.value); setCollectionPage(0) }}
               className="pl-9"
               aria-label="Cari di koleksi"
             />
@@ -813,9 +867,12 @@ export default function LiteraturePage() {
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                {filteredCollection.length} literatur tersimpan
+                Menampilkan {paginatedCollection.length} dari {filteredCollection.length} literatur tersimpan
+                {filteredCollection.length > COLLECTION_PAGE_SIZE && (
+                  <> · Halaman {collectionPage + 1} dari {totalCollectionPages}</>
+                )}
               </p>
-              {filteredCollection.map((item) => (
+              {paginatedCollection.map((item) => (
                 <Card key={item.id}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-4">
@@ -909,6 +966,38 @@ export default function LiteraturePage() {
                   </CardContent>
                 </Card>
               ))}
+
+              {/* Collection Pagination */}
+              {totalCollectionPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+                  <span className="text-xs text-muted-foreground order-2 sm:order-1">
+                    Halaman {collectionPage + 1} dari {totalCollectionPages}
+                  </span>
+                  <div className="flex items-center gap-2 order-1 sm:order-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCollectionPage(Math.max(0, collectionPage - 1))}
+                      disabled={collectionPage === 0}
+                    >
+                      <ChevronLeft className="size-4 mr-1" />
+                      Sebelumnya
+                    </Button>
+                    <span className="text-xs text-muted-foreground px-2">
+                      {collectionPage + 1} / {totalCollectionPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCollectionPage(Math.min(totalCollectionPages - 1, collectionPage + 1))}
+                      disabled={collectionPage === totalCollectionPages - 1}
+                    >
+                      Selanjutnya
+                      <ChevronRight className="size-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>

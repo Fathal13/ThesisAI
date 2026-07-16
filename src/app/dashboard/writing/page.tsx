@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { Bab as BabType } from "@/types"
-import { Edit3, Loader2, Sparkles, Trash2, FileText, AlertCircle, Check, X, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react"
+import { Edit3, Loader2, Sparkles, Trash2, FileText, AlertCircle, Check, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -171,11 +171,14 @@ export default function WritingPage() {
       target_selesai: form.target_selesai || null,
     }
 
+    const table = supabase.from("bab")
     if (editingId) {
-      const { error: err } = await (supabase.from("bab") as any).update(payload).eq("id", editingId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: err } = await (table as any).update(payload).eq("id", editingId)
       if (err) { setError(err.message); return }
     } else {
-      const { error: err } = await (supabase.from("bab") as any).insert(payload)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: err } = await (table as any).insert(payload)
       if (err) { setError(err.message); return }
     }
 
@@ -198,6 +201,7 @@ export default function WritingPage() {
   async function handleDelete(id: string) {
     if (!confirm("Hapus bab ini?")) return
     const { supabase } = await import("@/lib/supabase")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from("bab") as any).delete().eq("id", id)
     if (editingId === id) resetForm()
     fetchBab()
@@ -229,6 +233,7 @@ export default function WritingPage() {
 
       setReview(data)
       const { supabase } = await import("@/lib/supabase")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from("bab") as any).update({ status: "review" }).eq("id", bab.id)
 
       try { await fetch("/api/progress/recalculate", { method: "POST" }) } catch { /* skip */ }
@@ -257,9 +262,10 @@ export default function WritingPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Gagal memparafrase")
 
+      const originalText = form.konten
       setWizard({
         isOpen: true,
-        originalText: form.konten,
+        originalText,
         paraphrasedText: data.result,
         style: "akademik",
         words: [],
@@ -267,16 +273,17 @@ export default function WritingPage() {
         alternativesLoading: false,
         error: null,
       })
-      await fetchAlternatives(data.result)
-    } catch (err: any) {
-      setError(err.message ?? "Gagal memparafrase. Coba lagi.")
+      await fetchAlternatives(originalText, data.result)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal memparafrase. Coba lagi."
+      setError(message)
     } finally {
       setParaphraseLoading(false)
     }
   }
 
-  async function fetchAlternatives(paraphrasedText: string) {
-    const changedWords = extractChangedWords(wizard.originalText, paraphrasedText)
+  async function fetchAlternatives(originalText: string, paraphrasedText: string) {
+    const changedWords = extractChangedWords(originalText, paraphrasedText)
 
     if (changedWords.length === 0) {
       setWizard(prev => ({ ...prev, words: [], alternativesLoading: false }))
@@ -288,7 +295,7 @@ export default function WritingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          originalText: wizard.originalText,
+          originalText,
           paraphrasedText,
           changedWords,
         }),
@@ -304,8 +311,9 @@ export default function WritingPage() {
       }))
 
       setWizard(prev => ({ ...prev, words, alternativesLoading: false }))
-    } catch (err: any) {
-      setWizard(prev => ({ ...prev, alternativesLoading: false, error: err.message || "Gagal mengambil alternatif" }))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal mengambil alternatif"
+      setWizard(prev => ({ ...prev, alternativesLoading: false, error: message }))
     }
   }
 
@@ -382,6 +390,7 @@ export default function WritingPage() {
 
   async function updateStatus(id: string, status: Bab["status"]) {
     const { supabase } = await import("@/lib/supabase")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from("bab") as any).update({ status }).eq("id", id)
 
     try {
@@ -728,7 +737,7 @@ export default function WritingPage() {
                 <div className="text-center py-8 text-destructive">
                   <AlertCircle className="size-12 mx-auto mb-2" />
                   <p>{wizard.error}</p>
-                  <Button variant="outline" className="mt-4" onClick={() => fetchAlternatives(wizard.paraphrasedText)}>
+                  <Button variant="outline" className="mt-4" onClick={() => fetchAlternatives(wizard.originalText, wizard.paraphrasedText)}>
                     Coba Lagi
                   </Button>
                 </div>
@@ -745,7 +754,6 @@ export default function WritingPage() {
                   {/* Context preview */}
                   <div className="bg-muted/50 rounded-lg p-4 text-sm leading-relaxed whitespace-pre-wrap border">
                     <ContextPreview
-                      original={wizard.originalText}
                       paraphrased={wizard.paraphrasedText}
                       words={wizard.words}
                       currentIndex={wizard.currentIndex}
@@ -756,7 +764,7 @@ export default function WritingPage() {
                   <div className="space-y-4">
                     <p className="font-medium flex items-center gap-2">
                       <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-mono">
-                        "{currentWord?.word}"
+                        &ldquo;{currentWord?.word}&rdquo;
                       </span>
                       <span className="text-muted-foreground">— pilih pengganti:</span>
                     </p>
@@ -878,29 +886,14 @@ function ReviewSection({ title, items, icon }: { title: string; items: string[];
 }
 
 /**
- * Komponen diff: bandingkan teks original dengan hasil parafrase,
- * lalu sorot kata-kata yang berubah dengan background kuning.
- */
-function findOriginal(original: string, changedWord: string): string {
-  const words = original.split(/\s+/)
-  for (const w of words) {
-    const clean = w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
-    if (clean === changedWord) return w
-  }
-  return "?"
-}
-
-/**
  * Preview konteks: tampilkan teks parafrase dengan kata saat ini disorot biru,
  * kata lain yang berubah disorot kuning.
  */
 function ContextPreview({
-  original,
   paraphrased,
   words,
   currentIndex,
 }: {
-  original: string
   paraphrased: string
   words: ParaphraseWord[]
   currentIndex: number
