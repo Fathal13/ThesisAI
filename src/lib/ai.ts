@@ -551,9 +551,9 @@ JANGAN gunakan format markdown, JANGAN tambahkan teks lain.`
 
   const { text } = await withFallbackAndRetry(async (model) => {
     const res = await generateText({ model, prompt, temperature: 0.4 })
-    const trimmed = res.text.trim()
-    // ponytail: non-JSON text → throw so fallback chain retries next provider
-    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    // Gunakan cleanJson dulu agar markdown/teks pengantar tidak false positive
+    const cleaned = cleanJson(res.text)
+    if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
       throw new Error(`Provider returned non-JSON response`)
     }
     return res
