@@ -265,12 +265,15 @@ export default function WritingPage() {
       })
 
       if (!paraphraseResult.ok) {
-        const errData = await paraphraseResult.json().catch(() => ({}))
-        throw new Error(errData.error ?? "Gagal memparafrase")
+        const errData = await safeParseJson(paraphraseResult)
+        throw new Error((errData?.error as string) ?? "Gagal memparafrase")
       }
-      const data = await paraphraseResult.json()
+      const data = await safeParseJson(paraphraseResult)
+      if (!data || !data.result) {
+        throw new Error("Respons parafrase tidak valid dari server")
+      }
 
-      let paraphrasedText = data.result
+      let paraphrasedText = data.result as string
 
       // Guard: jika AI balikin teks sama persis, retry dengan gaya berbeda
       if (paraphrasedText.trim() === originalText.trim()) {
@@ -281,8 +284,8 @@ export default function WritingPage() {
         })
 
         if (res2.ok) {
-          const data2 = await res2.json()
-          paraphrasedText = data2.result
+          const data2 = await safeParseJson(res2)
+          paraphrasedText = (data2?.result as string) ?? ""
         }
 
         // Guard 2: masih sama? berarti AI beneran ga bisa
@@ -334,12 +337,12 @@ export default function WritingPage() {
         }),
       })
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? "Gagal mengambil alternatif")
+      const data = await safeParseJson(res)
+      if (!res.ok) throw new Error((data?.error as string) ?? "Gagal mengambil alternatif")
 
       const words: ParaphraseWord[] = changedWords.map((word) => ({
         word,
-        alternatives: data.alternatives?.[word] || [],
+        alternatives: (data?.alternatives as Record<string, string[]> | undefined)?.[word] || [],
         selectedIndex: -1,
       }))
 
@@ -924,6 +927,19 @@ function formatDateInput(date: string | Date | null | undefined): string {
   }
   if (isNaN(date.getTime())) return ""
   return date.toISOString().split("T")[0]
+}
+
+/**
+ * Safe JSON parser untuk fetch response.
+ * Jika response bukan JSON valid (HTML/plain text error dari Vercel, dll),
+ * return null alih-alih throw SyntaxError yang menampilkan raw error message.
+ */
+async function safeParseJson(res: Response): Promise<Record<string, unknown> | null> {
+  try {
+    return await res.json()
+  } catch {
+    return null
+  }
 }
 
 function ReviewSection({ title, items, icon }: { title: string; items: string[]; icon: React.ReactNode }) {
