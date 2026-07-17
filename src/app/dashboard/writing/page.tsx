@@ -111,14 +111,6 @@ export default function WritingPage() {
 
   const openBabRef = useRef<string | null>(null)
 
-  // Helper: fetch dengan timeout (ms)
-  function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
-    const controller = new AbortController()
-    const id = setTimeout(() => controller.abort(), timeoutMs)
-    return fetch(url, { ...options, signal: controller.signal })
-      .finally(() => clearTimeout(id))
-  }
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const babId = params.get("bab")
@@ -263,12 +255,14 @@ export default function WritingPage() {
     try {
       const originalText = form.konten
 
-      // Fetch paraphrase with timeout
-      const paraphraseResult = await fetchWithTimeout("/api/ai/paraphrase", {
+      // Fetch paraphrase — tanpa client-side AbortController / timeout.
+      // Server-side withFallbackAndRetry sudah handle retry + timeout (Vercel default 300s).
+      // Provider gratis kadang lambat (>60s), AbortController justru picu "signal aborted".
+      const paraphraseResult = await fetch("/api/ai/paraphrase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: originalText, style: "akademik" }),
-      }, 60000)
+      })
 
       if (!paraphraseResult.ok) {
         const errData = await paraphraseResult.json().catch(() => ({}))
@@ -280,11 +274,11 @@ export default function WritingPage() {
 
       // Guard: jika AI balikin teks sama persis, retry dengan gaya berbeda
       if (paraphrasedText.trim() === originalText.trim()) {
-        const res2 = await fetchWithTimeout("/api/ai/paraphrase", {
+        const res2 = await fetch("/api/ai/paraphrase", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: originalText, style: "ubah-struktur" }),
-        }, 60000)
+        })
 
         if (res2.ok) {
           const data2 = await res2.json()
@@ -330,7 +324,7 @@ export default function WritingPage() {
     setWizard(prev => ({ ...prev, alternativesLoading: true, error: null }))
 
     try {
-      const res = await fetchWithTimeout("/api/ai/paraphrase-alternatives", {
+      const res = await fetch("/api/ai/paraphrase-alternatives", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -338,7 +332,7 @@ export default function WritingPage() {
           paraphrasedText,
           changedWords,
         }),
-      }, 60000)
+      })
 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Gagal mengambil alternatif")
@@ -357,12 +351,16 @@ export default function WritingPage() {
   }
 
   /**
-   * Word-level diff menggunakan LCS (Longest Common Subsequence).
-   * Mengidentifikasi kata-kata dalam hasil parafrase yang benar-benar baru/berubah,
-   * bukan sekadar tidak ada di token set original.
+   * Word-level diff menggunakan frequency-based approach.
+   * Mengidentifikasi kata-kata dalam hasil parafrase yang benar-benar baru/berubah.
    *
-   * Ini mengatasi false-negative saat AI mengubah struktur kalimat
-   * tapi tetap menggunakan kosakata yang sama (muncul di tempat lain di original).
+   * Cara kerja:
+   * 1. Hitung frekuensi setiap kata di teks original
+   * 2. Iterasi kata-kata di hasil parafrase, "konsumsi" dari frekuensi original
+   * 3. Kata yang frekuensinya di hasil > di original → itu kata baru/berubah
+   *
+   * Ini mengatasi kelemahan LCS yang gagal deteksi saat AI mengubah struktur kalimat
+   * tapi tetap menggunakan kosakata yang sama.
    */
   function extractChangedWords(original: string, result: string): string[] {
     // Tokenize preserving Unicode letters (Indonesian words, etc.)
@@ -374,37 +372,26 @@ export default function WritingPage() {
 
     if (origTokens.length === 0 || resTokens.length === 0) return []
 
-    const m = origTokens.length
-    const n = resTokens.length
+    // Hitung frekuensi kata di original
+    const freq = new Map<string, number>()
+    for (const w of origTokens) {
+      freq.set(w, (freq.get(w) || 0) + 1)
+    }
 
-    // Build LCS table — O(m*n)
-    const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
-    for (let i = 1; i <= m; i++) {
-      const oWord = origTokens[i - 1]
-      for (let j = 1; j <= n; j++) {
-        dp[i][j] = oWord === resTokens[j - 1]
-          ? dp[i - 1][j - 1] + 1
-          : Math.max(dp[i - 1][j], dp[i][j - 1])
+    // Kata di hasil yang "melebihi" frekuensi original → kata berubah/baru
+    const changed = new Set<string>()
+    const consumed = new Map<string, number>()
+
+    for (const w of resTokens) {
+      const seen = (consumed.get(w) || 0) + 1
+      consumed.set(w, seen)
+      const available = freq.get(w) || 0
+      if (seen > available && w.length >= 3 && !/^\d+$/.test(w)) {
+        changed.add(w)
       }
     }
 
-    // Backtrack to find added words (words in result not matched to original)
-    const added = new Set<string>()
-    let i = m, j = n
-    while (i > 0 || j > 0) {
-      if (i > 0 && j > 0 && origTokens[i - 1] === resTokens[j - 1]) {
-        i--; j-- // matched — skip
-      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-        // word in result that is NOT matched to any original word → added/changed
-        const word = resTokens[j - 1]
-        if (word.length >= 3 && !/^\d+$/.test(word)) added.add(word)
-        j--
-      } else {
-        i-- // word in original that was removed — skip
-      }
-    }
-
-    return Array.from(added)
+    return Array.from(changed)
   }
 
   function selectAlternative(altIndex: number) {

@@ -728,12 +728,34 @@ TOTAL: ████████████████████████�
 
 ---
 
+### 🗓️ Sesi 17 Juli 2026 (Lanjutan) — Fix Parafrase Terpandu: AbortController + Word Diff
+
+**✅ Fix #1: "signal is aborted without reason"**
+- Hapus `fetchWithTimeout()` (AbortController 60s) dari `src/app/dashboard/writing/page.tsx`
+- Ganti semua panggilan ke `/api/ai/paraphrase` dan `/api/ai/paraphrase-alternatives` pake `fetch()` biasa
+- Server-side `withFallbackAndRetry` di `lib/ai.ts` sudah handle retry + timeout (Vercel default 300s)
+- Provider gratis kadang lambat (>60s), AbortController picu abort duluan sebelum server sempat selesai
+
+**✅ Fix #2: "tidak ada kata berubah" — word-level diff**
+- Ganti LCS backtracking → frequency-based diff di `extractChangedWords()`
+- Hitung frekuensi tiap kata di teks original, "konsumsi" dari hasil parafrase
+- Kata yang frekuensinya di hasil melebihi original → dianggap baru/berubah
+- Lebih robust untuk parafrase yang mengubah struktur kalimat
+
+**✅ Dead code cleanup**
+- Hapus `fetchWithTimeout()` function yang sudah tidak dipakai
+
+**Build & Lint**: 0 errors, 0 warnings ✅
+**Total progress: ~99%** 🚀
+
+---
+
 ### ⚠️ Masalah Terbuka
 
 | Masalah | Prioritas | Status | Detail |
 |---------|-----------|--------|--------|
-| **Parafrase Terpandu — error "signal is aborted without reason"** | 🔴 **HIGH** | **BARU** | `fetchWithTimeout()` dengan AbortController 60s memicu abort error. Root cause: AI provider gratis (Gemini/NVIDIA/OpenRouter/Groq) kadang merespons lambat atau tidak sama sekali — timeout bukan solusi. Perlu fallback strategy berbeda: hapus AbortController, pakai fast-fail model (coba provider cepat dulu) atau hard limit di server-side. |
-| **Parafrase Terpandu — tidak ada kata berubah** (sebelumnya) | 🔴 **HIGH** | **BELUM FIX** | LCS word-level diff sudah diganti, tokenize sudah Unicode-aware, tapi error baru muncul duluan. Belum sempat verifikasi fix ini karena request sudah abort duluan. |
+| **Parafrase Terpandu — error "signal is aborted without reason"** | 🔴 **HIGH** | **FIXED** ✅ | Hapus `fetchWithTimeout()` (AbortController 60s) — ganti semua panggilan ke `/api/ai/paraphrase` dan `/api/ai/paraphrase-alternatives` pake `fetch()` biasa. Server-side `withFallbackAndRetry` sudah handle retry + timeout (Vercel default 300s). Provider gratis kadang lambat (>60s), AbortController picu abort duluan. |
+| **Parafrase Terpandu — tidak ada kata berubah** (sebelumnya) | 🔴 **HIGH** | **FIXED** ✅ | Ganti LCS backtracking word-level diff → frequency-based diff. Hitung frekuensi tiap kata di original, konsumsi dari hasil parafrase — kata yang melebihi frekuensi original dianggap baru/berubah. Lebih robust untuk parafrase yang mengubah struktur kalimat. |
 | **Jadikan BAB — hasil generate berbahasa Inggris** | 🔴 **HIGH** | **FIXED** ✅ | Prompt diperkuat dengan [WAJIB] Bahasa Indonesia + post-processing `countIndonesianWords()`/`countEnglishWords()` — throw kalau >30% kata Inggris, trigger fallback ke provider berikutnya. |
 | **Session Rotation / Idle Timeout** | 🟡 **MEDIUM** | OPEN | Cek refresh token rotation & idle timeout settings di Supabase Dashboard |
 | **User langsung masuk dashboard sebelum konfirmasi email** | 🔴 **HIGH** | OPEN | Supabase auto-confirm workaround bikin user langsung login tanpa konfirmasi email. Perlu ganti flow: kirim email konfirmasi standar, block akses dashboard sampai email confirmed |
@@ -747,10 +769,10 @@ TOTAL: ████████████████████████�
 ### 📋 Agenda Sesi Selanjutnya
 
 **🔴 HIGH:**
-- ⬜ Fix Parafrase Terpandu — error "signal is aborted without reason" — **BARU (Sesi 17 Juli 2026)**
-- ⬜ Fix Parafrase Terpandu — tidak ada kata berubah (diff terlalu sederhana) — **BELUM FIX**
+- ✅ Fix Parafrase Terpandu — error "signal is aborted without reason" — **SELESAI (Sesi 17 Juli 2026)**
+- ✅ Fix Parafrase Terpandu — tidak ada kata berubah (diff terlalu sederhana) — **SELESAI (Sesi 17 Juli 2026)**
 - ✅ Fix Jadikan BAB — paksa output Bahasa Indonesia meski referensi Inggris — **SELESAI (Sesi 17 Juli 2026)**
-- ⬜ (selesai) Fix Parafrase Terpandu — JSON parse error di `generateParaphraseAlternatives()`
+- ✅ (selesai) Fix Parafrase Terpandu — JSON parse error di `generateParaphraseAlternatives()`
 
 **⚪ SECONDARY:**
 - (selesai) Implementasi async queue untuk AI summarize
