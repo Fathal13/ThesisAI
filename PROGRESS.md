@@ -732,7 +732,8 @@ TOTAL: ████████████████████████�
 
 | Masalah | Prioritas | Status | Detail |
 |---------|-----------|--------|--------|
-| **Parafrase Terpandu — tidak ada kata berubah** | 🔴 **HIGH** | **FIXED** ✅ | LCS word-level diff menggantikan token-set comparison. Backtrack mendeteksi kata yang benar-benar baru/berubah, bukan sekadar tidak ada di token set original. |
+| **Parafrase Terpandu — error "signal is aborted without reason"** | 🔴 **HIGH** | **BARU** | `fetchWithTimeout()` dengan AbortController 60s memicu abort error. Root cause: AI provider gratis (Gemini/NVIDIA/OpenRouter/Groq) kadang merespons lambat atau tidak sama sekali — timeout bukan solusi. Perlu fallback strategy berbeda: hapus AbortController, pakai fast-fail model (coba provider cepat dulu) atau hard limit di server-side. |
+| **Parafrase Terpandu — tidak ada kata berubah** (sebelumnya) | 🔴 **HIGH** | **BELUM FIX** | LCS word-level diff sudah diganti, tokenize sudah Unicode-aware, tapi error baru muncul duluan. Belum sempat verifikasi fix ini karena request sudah abort duluan. |
 | **Jadikan BAB — hasil generate berbahasa Inggris** | 🔴 **HIGH** | **FIXED** ✅ | Prompt diperkuat dengan [WAJIB] Bahasa Indonesia + post-processing `countIndonesianWords()`/`countEnglishWords()` — throw kalau >30% kata Inggris, trigger fallback ke provider berikutnya. |
 | **Session Rotation / Idle Timeout** | 🟡 **MEDIUM** | OPEN | Cek refresh token rotation & idle timeout settings di Supabase Dashboard |
 | **User langsung masuk dashboard sebelum konfirmasi email** | 🔴 **HIGH** | OPEN | Supabase auto-confirm workaround bikin user langsung login tanpa konfirmasi email. Perlu ganti flow: kirim email konfirmasi standar, block akses dashboard sampai email confirmed |
@@ -746,7 +747,8 @@ TOTAL: ████████████████████████�
 ### 📋 Agenda Sesi Selanjutnya
 
 **🔴 HIGH:**
-- ✅ Fix Parafrase Terpandu — tidak ada kata berubah (diff terlalu sederhana) — **SELESAI (Sesi 17 Juli 2026)**
+- ⬜ Fix Parafrase Terpandu — error "signal is aborted without reason" — **BARU (Sesi 17 Juli 2026)**
+- ⬜ Fix Parafrase Terpandu — tidak ada kata berubah (diff terlalu sederhana) — **BELUM FIX**
 - ✅ Fix Jadikan BAB — paksa output Bahasa Indonesia meski referensi Inggris — **SELESAI (Sesi 17 Juli 2026)**
 - ⬜ (selesai) Fix Parafrase Terpandu — JSON parse error di `generateParaphraseAlternatives()`
 
