@@ -1,0 +1,21 @@
+▲ Next.js 16.2.10 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 1 errors:
+./src/app/dashboard/writing/page.tsx:106:9
+Unexpected token `ident`. Expected ... , *,  (, [, :, , ?, =, an identifier, public, protected, private, readonly, <.
+  [90m104 |[0m   [36mconst[0m [form, setForm] = useState({
+  [90m105 |[0m
+[31m[1m>[0m [90m106 |[0m   [36mconst[0m openBabRef = useRef<string | [36mnull[0m>([36mnull[0m)
+  [90m    |[0m         [31m[1m^^^^^^^^^^[0m
+  [90m107 |[0m
+  [90m108 |[0m   useEffect(() => {
+  [90m109 |[0m     [36mconst[0m params = [36mnew[0m [33mURLSearchParams[0m(window.location.search)
+
+Parsing ecmascript source code failed
+
+
+    at <unknown> (./src/app/dashboard/writing/page.tsx:106:9)

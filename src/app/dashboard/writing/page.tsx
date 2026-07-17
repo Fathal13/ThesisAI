@@ -317,23 +317,54 @@ export default function WritingPage() {
     }
   }
 
+  /**
+   * Word-level diff menggunakan LCS (Longest Common Subsequence).
+   * Mengidentifikasi kata-kata dalam hasil parafrase yang benar-benar baru/berubah,
+   * bukan sekadar tidak ada di token set original.
+   *
+   * Ini mengatasi false-negative saat AI mengubah struktur kalimat
+   * tapi tetap menggunakan kosakata yang sama (muncul di tempat lain di original).
+   */
   function extractChangedWords(original: string, result: string): string[] {
-    const originalTokens = new Set(
-      original.split(/\s+/).map(w => w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()).filter(Boolean),
-    )
-    const resultWords = result.split(/(\s+)/)
-    const changed: string[] = []
+    const tokenize = (t: string) =>
+      t.split(/\s+/).map(w => w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()).filter(Boolean)
 
-    for (const word of resultWords) {
-      const clean = word.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()
-      if (!clean || /^\s+$/.test(word) || clean.length < 3 || /^\d+$/.test(clean)) continue
-      if (!originalTokens.has(clean)) {
-        if (!changed.some(c => c.toLowerCase() === clean)) {
-          changed.push(clean) // ponytail: push cleaned word so AI key matches
-        }
+    const origTokens = tokenize(original)
+    const resTokens = tokenize(result)
+
+    if (origTokens.length === 0 || resTokens.length === 0) return []
+
+    const m = origTokens.length
+    const n = resTokens.length
+
+    // Build LCS table — O(m*n)
+    const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
+    for (let i = 1; i <= m; i++) {
+      const oWord = origTokens[i - 1]
+      for (let j = 1; j <= n; j++) {
+        dp[i][j] = oWord === resTokens[j - 1]
+          ? dp[i - 1][j - 1] + 1
+          : Math.max(dp[i - 1][j], dp[i][j - 1])
       }
     }
-    return changed
+
+    // Backtrack to find added words (words in result not matched to original)
+    const added = new Set<string>()
+    let i = m, j = n
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && origTokens[i - 1] === resTokens[j - 1]) {
+        i--; j-- // matched — skip
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        // word in result that is NOT matched to any original word → added/changed
+        const word = resTokens[j - 1]
+        if (word.length >= 3 && !/^\d+$/.test(word)) added.add(word)
+        j--
+      } else {
+        i-- // word in original that was removed — skip
+      }
+    }
+
+    return Array.from(added)
   }
 
   function selectAlternative(altIndex: number) {

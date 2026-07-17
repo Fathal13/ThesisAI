@@ -587,6 +587,115 @@ Fokus: uraikan temuan utama artikel, bahas implikasinya terhadap topik skripsi, 
 Fokus: rangkum kontribusi artikel, identifikasi keterbatasannya sebagai celah riset, dan berikan saran untuk penelitian selanjutnya.`,
 }
 
+// ──────────────────────────────────────────
+//  Language detection helpers — post-process AI output
+// ──────────────────────────────────────────
+
+/** Common Indonesian stopwords & frequent academic words. */
+const INDONESIAN_WORDS = new Set([
+  "adalah", "ada", "akan", "aku", "saya", "kami", "kita", "anda", "dia", "mereka",
+  "dengan", "dalam", "dari", "dan", "di", "ke", "oleh", "pada", "sebagai", "untuk",
+  "telah", "sudah", "belum", "sedang", "akan", "bisa", "dapat", "mungkin", "harus",
+  "tidak", "bukan", "jangan", "ini", "itu", "yang", "bahwa", "karena", "sehingga",
+  "maka", "lalu", "setelah", "sebelum", "ketika", "saat", "antara", "tentang",
+  "secara", "melalui", "berdasarkan", "merupakan", "tersebut", "seperti", "juga",
+  "serta", "atau", "namun", "tetapi", "sedangkan", "sementara", "meskipun",
+  "walaupun", "jika", "apabila", "kalau", "agar", "supaya", "untuk", "bagi",
+  "perlu", "dapat", "sangat", "lebih", "kurang", "paling", "semua", "setiap",
+  "masing", "sendiri", "hal", "halnya", "hal-hal", "proses", "hasil", "data",
+  "penelitian", "riset", "studi", "kajian", "analisis", "analisa",
+  "metode", "metodologi", "pendekatan", "teknik", "cara", "langkah",
+  "teori", "konsep", "kerangka", "variabel", "indikator",
+  "populasi", "sampel", "responden", "informan", "subjek", "objek",
+  "instrumen", "angket", "kuesioner", "wawancara", "observasi",
+  "temuan", "pembahasan", "kesimpulan", "saran", "implikasi", "keterbatasan",
+  "rekomendasi", "kontribusi", "manfaat", "tujuan", "rumusan",
+  "latar", "belakang", "identifikasi", "batasan", "definisi",
+  "hipotesis", "asumsi", "landasan", "tinjauan", "pustaka",
+  "bab", "subbab", "bagian", "subbagian",
+  "akademik", "ilmiah", "skripsi", "tesis", "peneliti",
+  "dosen", "pembimbing", "mahasiswa", "fakultas", "universitas",
+  "perubahan", "pengaruh", "dampak", "efek", "hubungan", "korelasi",
+  "perbedaan", "perbandingan", "efektivitas", "efisiensi",
+  "kualitas", "kuantitas", "kualitatif", "kuantitatif",
+  "deskriptif", "eksploratif", "eksplanatif", "eksperimen",
+  "empiris", "teoritis", "praktis", "konseptual",
+  "primer", "sekunder", "tersier", "signifikan",
+  "relevan", "komprehensif", "sistematis", "terstruktur",
+  "aspek", "dimensi", "komponen", "elemen", "faktor",
+  "indikasi", "variasi", "distribusi", "frekuensi",
+  "rata", "persen", "proporsi", "total", "jumlah",
+  "sebab", "akibat", "konsekuensi", "implikasi",
+  "konteks", "perspektif", "sudut", "pandang",
+  "era", "masa", "periode", "fase", "tahap",
+  "awal", "akhir", "lanjut", "lanjutan",
+  "pembahasan", "pemahaman", "penjelasan", "uraian", "paparan",
+  "argumentasi", "argumen", "pendapat", "gagasan", "ide",
+  "temuan", "fakta", "informasi", "data",
+  "terkait", "berkaitan", "berhubungan", "berkorelasi",
+  "mengacu", "merujuk", "berdasarkan", "mendasari",
+  "menunjukkan", "menjelaskan", "menggambarkan", "memaparkan",
+  "menganalisis", "mengevaluasi", "mengkaji", "menelaah",
+  "menyimpulkan", "merekomendasikan", "menyarankan",
+  "diperoleh", "didapatkan", "ditemukan", "dihasilkan",
+  "dilakukan", "dijalankan", "diterapkan", "digunakan",
+  "dikembangkan", "diuji", "divalidasi", "dievaluasi",
+  "sebaliknya", "sejalan", "selaras", "sesuai",
+  "mendukung", "bertentangan", "berbeda", "serupa",
+  "khususnya", "terutama", "utamanya", "kebanyakan",
+  "umumnya", "pada", "dasarnya", "intinya",
+  "sekitar", "kurang", "lebih", "hampir", "hanya",
+  "seluruh", "keseluruhan", "menyeluruh",
+  "berbagai", "beberapa", "banyak", "banyaknya",
+  "tunggal", "majemuk", "kompleks", "sederhana",
+  "parsial", "simultan", "berganda",
+  "acak", "purposeif", "snowball", "cluster",
+  "normal", "valid", "reliabel", "realibel",
+  "persamaan", "perbedaan", "kemiripan", "kesamaan",
+])
+
+/** Common English stopwords & frequent academic words. */
+const ENGLISH_WORDS = new Set([
+  "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+  "of", "by", "with", "from", "as", "is", "are", "was", "were", "be",
+  "been", "being", "have", "has", "had", "do", "does", "did", "will",
+  "would", "could", "should", "may", "might", "shall", "can",
+  "this", "that", "these", "those", "it", "its", "they", "them", "their",
+  "we", "us", "our", "you", "your", "he", "him", "his", "she", "her",
+  "who", "whom", "which", "what", "where", "when", "why", "how",
+  "not", "no", "nor", "neither", "so", "if", "then", "than",
+  "also", "very", "too", "just", "only", "more", "most", "much",
+  "many", "some", "any", "each", "every", "all", "both", "few",
+  "such", "other", "another", "about", "above", "after", "before",
+  "between", "through", "during", "without", "within", "along",
+  "following", "including", "excluding", "among",
+  "because", "since", "although", "though", "while", "whereas",
+  "therefore", "however", "nevertheless", "furthermore", "moreover",
+  "meanwhile", "otherwise", "consequently", "accordingly",
+  "based", "using", "including", "regarding", "related",
+  "research", "study", "analysis", "result", "method", "data",
+  "theory", "model", "approach", "finding", "conclusion",
+  "significant", "positive", "negative", "correlation",
+  "effect", "impact", "influence", "relationship",
+  "sample", "population", "variable", "factor", "measure",
+  "test", "score", "value", "level", "rate", "ratio",
+  "first", "second", "third", "last", "next", "previous",
+  "such", "well", "also", "thus", "hence", "overall",
+  "important", "key", "major", "main", "primary", "secondary",
+])
+
+/** Count how many words are likely Indonesian (case-insensitive). */
+function countIndonesianWords(text: string): number {
+  const words = text.toLowerCase().split(/[^a-z]/).filter(Boolean)
+  return words.filter(w => INDONESIAN_WORDS.has(w)).length
+}
+
+/** Count how many words are likely English (case-insensitive). */
+function countEnglishWords(text: string): number {
+  const words = text.toLowerCase().split(/[^a-z]/).filter(Boolean)
+  return words.filter(w => ENGLISH_WORDS.has(w)).length
+}
+
 export async function generateBabFromLiterature(
   literatureJudul: string,
   literatureAbstrak: string | null,
@@ -635,15 +744,21 @@ Anda HANYA punya abstrak dan/atau rangkuman singkat dari artikel ini. Anda TIDAK
 3. Fokus pada KERANGKA dan IDE UTAMA — jangan mencoba membuat narasi yang terdengar meyakinkan tapi sebenarnya halusinasi.
 4. **Kamu tetap perlu membaca artikelnya secara langsung!**
 
-### Aturan Penting
-1. Tulis dalam Bahasa Indonesia akademik yang formal dan jelas
-2. Panjang: 400-800 kata (sekitar 2-4 paragraf)
-3. Gunakan artikel ini sebagai referensi utama — kutip dengan (Penulis, Tahun) di tempat yang relevan
-4. Jangan menyalin mentah abstrak — kembangkan menjadi narasi bab yang utuh
-5. Akhiri dengan kalimat transisi ke bab berikutnya (jika relevan)
-6. Gunakan format paragraf yang rapi (bukan bullet points)
-7. JANGAN gunakan markdown atau format JSON — langsung teks paragraf biasa
-8. Cantumkan footnote/daftar pustaka di bagian bawah jika ada sitasi dari artikel ini
+### Aturan PENTING — BAHASA INDONESIA WAJIB
+1. [WAJIB] SELURUH output HARUS dalam Bahasa Indonesia akademik baku. TIDAK BOLEH ada satu pun kalimat dalam bahasa Inggris.
+2. Jika artikel referensi berbahasa Inggris, Anda harus MENERJEMAHKAN semua konsep ke Bahasa Indonesia yang baku dan natural.
+3. Istilah teknis yang tidak memiliki padanan Indonesia boleh dipertahankan dalam bahasa Inggris, tetapi WAJIB ditulis dalam tanda kutip dan diapit penjelasan bahasa Indonesia — contoh: "machine learning" (pembelajaran mesin).
+4. Nama penulis, judul artikel asli, dan DOI boleh dalam bahasa aslinya — SELAIN ITU, HARUS BAHASA INDONESIA.
+5. Jika ada kalimat dalam bahasa Inggris, output Anda DIANGGAP GAGAL dan akan ditolak.
+
+### Aturan Tambahan
+1. Panjang: 400-800 kata (sekitar 2-4 paragraf)
+2. Gunakan artikel ini sebagai referensi utama — kutip dengan (Penulis, Tahun) di tempat yang relevan
+3. Jangan menyalin mentah abstrak — kembangkan menjadi narasi bab yang utuh
+4. Akhiri dengan kalimat transisi ke bab berikutnya (jika relevan)
+5. Gunakan format paragraf yang rapi (bukan bullet points)
+6. JANGAN gunakan markdown atau format JSON — langsung teks paragraf biasa
+7. Cantumkan footnote/daftar pustaka di bagian bawah jika ada sitasi dari artikel ini
 
 ### Output
 Teks draft BAB ${babNumber} yang siap diedit mahasiswa. Langsung mulai dengan konten bab, tanpa kata pengantar.
@@ -656,7 +771,19 @@ Di AWAL output, tambahkan disclaimer dalam format:
     generateText({ model, prompt }),
   )
 
-  return text.trim()
+  // Post-processing: deteksi apakah output didominasi bahasa Inggris
+  const output = text.trim()
+  const indonesianWords = countIndonesianWords(output)
+  const englishWords = countEnglishWords(output)
+  const totalWords = output.split(/\s+/).filter(Boolean).length
+
+  // Jika lebih dari 30% kata adalah kata Inggris (bukan proper noun / istilah teknis),
+  // anggap model gagal mengikuti instruksi — fallback ke provider berikutnya
+  if (totalWords > 20 && englishWords > totalWords * 0.3 && englishWords > indonesianWords) {
+    throw new Error("Output dominan bahasa Inggris — model tidak mengikuti instruksi Bahasa Indonesia")
+  }
+
+  return output
 }
 
 // ──────────────────────────────────────────
