@@ -111,6 +111,14 @@ export default function WritingPage() {
 
   const openBabRef = useRef<string | null>(null)
 
+  // Helper: fetch dengan timeout (ms)
+  function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+    const controller = new AbortController()
+    const id = setTimeout(() => controller.abort(), timeoutMs)
+    return fetch(url, { ...options, signal: controller.signal })
+      .finally(() => clearTimeout(id))
+  }
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const babId = params.get("bab")
@@ -253,27 +261,56 @@ export default function WritingPage() {
     setError("")
 
     try {
-      const res = await fetch("/api/ai/paraphrase", {
+      const originalText = form.konten
+
+      // Fetch paraphrase with timeout
+      const paraphraseResult = await fetchWithTimeout("/api/ai/paraphrase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: form.konten, style: "akademik" }),
-      })
+        body: JSON.stringify({ text: originalText, style: "akademik" }),
+      }, 60000)
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? "Gagal memparafrase")
+      if (!paraphraseResult.ok) {
+        const errData = await paraphraseResult.json().catch(() => ({}))
+        throw new Error(errData.error ?? "Gagal memparafrase")
+      }
+      const data = await paraphraseResult.json()
 
-      const originalText = form.konten
+      let paraphrasedText = data.result
+
+      // Guard: jika AI balikin teks sama persis, retry dengan gaya berbeda
+      if (paraphrasedText.trim() === originalText.trim()) {
+        const res2 = await fetchWithTimeout("/api/ai/paraphrase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: originalText, style: "ubah-struktur" }),
+        }, 60000)
+
+        if (res2.ok) {
+          const data2 = await res2.json()
+          paraphrasedText = data2.result
+        }
+
+        // Guard 2: masih sama? berarti AI beneran ga bisa
+        if (paraphrasedText.trim() === originalText.trim()) {
+          throw new Error("AI tidak bisa memparafrase teks ini. Coba edit manual.")
+        }
+      }
+
       setWizard({
         isOpen: true,
         originalText,
-        paraphrasedText: data.result,
+        paraphrasedText,
         style: "akademik",
         words: [],
         currentIndex: 0,
         alternativesLoading: false,
         error: null,
       })
-      await fetchAlternatives(originalText, data.result)
+
+      // Small delay agar wizard state sempat di-render sebelum fetch berikutnya
+      await new Promise(r => setTimeout(r, 50))
+      await fetchAlternatives(originalText, paraphrasedText)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Gagal memparafrase. Coba lagi."
       setError(message)
@@ -290,8 +327,10 @@ export default function WritingPage() {
       return
     }
 
+    setWizard(prev => ({ ...prev, alternativesLoading: true, error: null }))
+
     try {
-      const res = await fetch("/api/ai/paraphrase-alternatives", {
+      const res = await fetchWithTimeout("/api/ai/paraphrase-alternatives", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -299,7 +338,7 @@ export default function WritingPage() {
           paraphrasedText,
           changedWords,
         }),
-      })
+      }, 60000)
 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Gagal mengambil alternatif")
@@ -326,8 +365,9 @@ export default function WritingPage() {
    * tapi tetap menggunakan kosakata yang sama (muncul di tempat lain di original).
    */
   function extractChangedWords(original: string, result: string): string[] {
+    // Tokenize preserving Unicode letters (Indonesian words, etc.)
     const tokenize = (t: string) =>
-      t.split(/\s+/).map(w => w.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()).filter(Boolean)
+      t.split(/\s+/).map(w => w.replace(/[^\p{L}\p{N}]/gu, "").toLowerCase()).filter(Boolean)
 
     const origTokens = tokenize(original)
     const resTokens = tokenize(result)
@@ -400,8 +440,10 @@ export default function WritingPage() {
     let text = wizard.paraphrasedText
     for (const w of wizard.words) {
       if (w.selectedIndex >= 0 && w.alternatives[w.selectedIndex]) {
-        // ponytail: no regex escaping needed — words are alphanumeric only
-        const regex = new RegExp(`\\b${w.word}\\b`, "g")
+        // Case-insensitive word-boundary match, preserving original punctuation
+        // w.word is cleaned (lowercase, alnum only) — escape for regex safety
+        const escaped = w.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        const regex = new RegExp(`\\b${escaped}\\b`, "gi")
         text = text.replace(regex, w.alternatives[w.selectedIndex])
       }
     }
