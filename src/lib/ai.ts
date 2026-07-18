@@ -536,29 +536,64 @@ Aturan PENTING:
   return result
 }
 
+// Helper: Filter high-value words (skip stopwords)
+function isHighValueWord(word: string): boolean {
+  const lowValue = new Set([
+    "yang", "adalah", "dari", "ke", "di", "pada", "untuk", "dengan",
+    "dan", "atau", "tapi", "namun", "saat", "ketika", "jika",
+    "karena", "maka", "sehingga", "lalu", "kemudian",
+    "selalu", "tidak", "belum", "sudah", "akan", "dapat", "bisa",
+  ])
+  return word.length >= 4 && !lowValue.has(word.toLowerCase())
+}
+
+// Helper: Extract only relevant sentences (reduce token bloat)
+function extractRelevantSentences(
+  text: string,
+  changedWords: string[],
+): string {
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || []
+  const changedWordsSet = new Set(changedWords.map((w) => w.toLowerCase()))
+
+  const relevant = sentences
+    .filter((sentence) => {
+      const words = sentence.toLowerCase().split(/\W+/)
+      return words.some((w) => changedWordsSet.has(w))
+    })
+    .slice(0, 5) // Max 5 sentences
+
+  return relevant.join(" ").slice(0, 1500) // Max 1500 chars
+}
+
 export async function generateParaphraseAlternatives(
   originalText: string,
   paraphrasedText: string,
   changedWords: string[],
 ): Promise<Record<string, string[]>> {
-  const existingKeys = changedWords.filter((w) => w.length >= 3)
+  // FIX #1: Filter to high-value words only (not stopwords)
+  let existingKeys = changedWords.filter((w) => w.length >= 3)
+  existingKeys = existingKeys.filter(isHighValueWord).slice(0, 15)
+
   if (existingKeys.length === 0) return {}
+
+  // FIX #2: Extract only relevant sentences (not full text)
+  const relevantContext = extractRelevantSentences(
+    paraphrasedText,
+    existingKeys,
+  )
 
   const wordList = existingKeys.map((w, i) => `${i + 1}. "${w}"`).join("\n")
 
   const prompt = `
 Anda adalah asisten akademik yang membantu mahasiswa memilih sinonim akademik.
 
-Konteks — Teks asli:
-"""${originalText}"""
-
-Konteks — Teks parafrase:
-"""${paraphrasedText}"""
+Konteks — Teks parafrase (potongan relevan):
+"""${relevantContext}"""
 
 Kata-kata yang perlu dicarikan sinonim (gunakan NOMOR dan KATA PERSIS ini sebagai kunci JSON):
 ${wordList}
 
-Tugas: Untuk SETIAP kata di atas, berikan 4 sinonim DALAM BAHASA INDONESIA yang sesuai dengan konteks akademik skripsi. Sinonim harus bisa menggantikan kata tersebut di dalam teks parafrase di atas.
+Tugas: Untuk SETIAP kata di atas, berikan 3 sinonim DALAM BAHASA INDONESIA yang sesuai dengan konteks akademik skripsi. Sinonim harus bisa menggantikan kata tersebut di dalam teks parafrase.
 
 Aturan:
 - Sinonim harus BAHASA INDONESIA akademik yang baku dan formal
@@ -568,18 +603,20 @@ Aturan:
 
 PENTING: Output HANYA SATU objek JSON, tanpa markdown, tanpa penjelasan.
 Format WAJIB:
-{"alternatives":{"KATA_PERTAMA":["sinonim1","sinonim2","sinonim3","sinonim4"],"KATA_KEDUA":["sinonim1","sinonim2","sinonim3","sinonim4"]}}
+{"alternatives":{"KATA_PERTAMA":["sinonim1","sinonim2","sinonim3"],"KATA_KEDUA":["sinonim1","sinonim2","sinonim3"]}}
 JANGAN gunakan format markdown, JANGAN tambahkan teks lain.`
 
   const { text } = await withFallbackAndRetry(async (model) => {
     const res = await generateText({
       model,
       prompt,
-      temperature: 0.4,
+      temperature: 0.3,  // FIX #3: Lower temp (faster inference)
       maxRetries: 0,
-      timeout: 20_000,
+      timeout: 25_000,   // FIX #4: Safe sekarang karena input lebih kecil
     })
-    const parsed = safeJsonParse<unknown>(res.text, null)
+
+    const trimmed = res.text.trim()
+    const parsed = safeJsonParse<unknown>(trimmed, null)
     const alternatives = normalizeParaphraseAlternatives(parsed, existingKeys)
 
     if (Object.keys(alternatives).length === 0) {
@@ -807,7 +844,7 @@ Anda HANYA punya abstrak dan/atau rangkuman singkat dari artikel ini. Anda TIDAK
 ### Aturan PENTING — BAHASA INDONESIA WAJIB
 1. [WAJIB] SELURUH output HARUS dalam Bahasa Indonesia akademik baku. TIDAK BOLEH ada satu pun kalimat dalam bahasa Inggris.
 2. Jika artikel referensi berbahasa Inggris, Anda harus MENERJEMAHKAN semua konsep ke Bahasa Indonesia yang baku dan natural.
-3. Istilah teknis yang tidak memiliki padanan Indonesia boleh dipertahankan dalam bahasa Inggris, tetapi WAJIB ditulis dalam tanda kutip dan diapit penjelasan bahasa Indonesia — contoh: "machine learning" (pembelajaran mesin).
+3. Istilah teknis yang tidak memiliki padanan Indonesia boleh dipertahankan dalam bahasa Inggris, tetapi WAJIB ditulis dalam tanda kutip dan diapit penjelasan bahasa Indonesia — contoh: "machin[...]
 4. Nama penulis, judul artikel asli, dan DOI boleh dalam bahasa aslinya — SELAIN ITU, HARUS BAHASA INDONESIA.
 5. Jika ada kalimat dalam bahasa Inggris, output Anda DIANGGAP GAGAL dan akan ditolak.
 
