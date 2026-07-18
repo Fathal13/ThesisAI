@@ -108,7 +108,9 @@ function isTimeoutError(err: unknown): boolean {
     msg.includes("timeout") ||
     msg.includes("timed out") ||
     msg.includes("Timeout") ||
-    msg.includes("TIMEOUT")
+    msg.includes("TIMEOUT") ||
+    msg.includes("aborted") ||
+    msg.includes("AbortError")
   )
 }
 
@@ -187,6 +189,9 @@ const MAX_RETRIES = 2
 const INITIAL_DELAY = 1000
 
 type GenerateFn = (model: LanguageModel) => Promise<{ text: string }>
+type FallbackOptions = {
+  maxRetries?: number
+}
 
 const PROVIDER_CHAIN: Array<{ name: ProviderName; model: LanguageModel }> = [
   { name: "gemini", model: MODELS.gemini },
@@ -204,8 +209,12 @@ const PROVIDER_CHAIN: Array<{ name: ProviderName; model: LanguageModel }> = [
  * - Content safety / policy → throw LANGSUNG (gagal di semua provider)
  * - Timeout → retry dulu, baru fallback
  */
-async function withFallbackAndRetry(fn: GenerateFn): Promise<{ text: string }> {
+async function withFallbackAndRetry(
+  fn: GenerateFn,
+  options: FallbackOptions = {},
+): Promise<{ text: string }> {
   const errors: Array<{ provider: ProviderName; error: string }> = []
+  const maxRetries = options.maxRetries ?? MAX_RETRIES
 
   for (const { name, model } of PROVIDER_CHAIN) {
     const key = getApiKeyForProvider(name)
@@ -214,7 +223,7 @@ async function withFallbackAndRetry(fn: GenerateFn): Promise<{ text: string }> {
       continue
     }
 
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         activeProvider = name
         return await fn(model)
@@ -230,22 +239,22 @@ async function withFallbackAndRetry(fn: GenerateFn): Promise<{ text: string }> {
         // Error text response (provider returns "An error occurred..." as 200 OK)
         // Treat as server error → retry dulu, baru fallback
         if (isErrorText(errMsg)) {
-          if (attempt < MAX_RETRIES) {
-            console.warn(`[AI] ${name} returned error text (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retry`)
+          if (attempt < maxRetries) {
+            console.warn(`[AI] ${name} returned error text (attempt ${attempt + 1}/${maxRetries + 1}), retry`)
             continue
           }
-          console.warn(`[AI] ${name} error text after ${MAX_RETRIES + 1}x retry — fallback: ${errMsg.slice(0, 80)}`)
+          console.warn(`[AI] ${name} error text after ${maxRetries + 1}x retry — fallback: ${errMsg.slice(0, 80)}`)
           errors.push({ provider: name, error: `Provider error: ${errMsg.slice(0, 100)}` })
           break
         }
 
         // Timeout — retry dulu
         if (isTimeoutError(err)) {
-          if (attempt < MAX_RETRIES) {
-            console.warn(`[AI] ${name} timeout (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retry`)
+          if (attempt < maxRetries) {
+            console.warn(`[AI] ${name} timeout (attempt ${attempt + 1}/${maxRetries + 1}), retry`)
             continue
           }
-          console.warn(`[AI] ${name} timeout habis setelah ${MAX_RETRIES + 1}x retry — fallback`)
+          console.warn(`[AI] ${name} timeout habis setelah ${maxRetries + 1}x retry — fallback`)
           errors.push({ provider: name, error: `Timeout — ${errMsg}` })
           break
         }
@@ -259,27 +268,27 @@ async function withFallbackAndRetry(fn: GenerateFn): Promise<{ text: string }> {
 
         // Rate limit — retry dengan exponential backoff
         if (isRateLimitError(err)) {
-          if (attempt < MAX_RETRIES) {
+          if (attempt < maxRetries) {
             const delay = INITIAL_DELAY * Math.pow(2, attempt)
             console.warn(
-              `[AI] ${name} rate limit (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retry in ${delay}ms`,
+              `[AI] ${name} rate limit (attempt ${attempt + 1}/${maxRetries + 1}), retry in ${delay}ms`,
             )
             await new Promise((r) => setTimeout(r, delay))
             continue
           }
-          console.warn(`[AI] ${name} rate limit habis setelah ${MAX_RETRIES + 1}x retry — fallback`)
+          console.warn(`[AI] ${name} rate limit habis setelah ${maxRetries + 1}x retry — fallback`)
           errors.push({ provider: name, error: `Rate limit — ${errMsg}` })
           break
         }
 
         // Error lain (server error, unknown) — retry dulu, baru fallback
-        if (attempt < MAX_RETRIES) {
+        if (attempt < maxRetries) {
           console.warn(
-            `[AI] ${name} error (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retry: ${errMsg}`,
+            `[AI] ${name} error (attempt ${attempt + 1}/${maxRetries + 1}), retry: ${errMsg}`,
           )
           continue
         }
-        console.warn(`[AI] ${name} error habis setelah ${MAX_RETRIES + 1}x retry — fallback: ${errMsg}`)
+        console.warn(`[AI] ${name} error habis setelah ${maxRetries + 1}x retry — fallback: ${errMsg}`)
         errors.push({ provider: name, error: errMsg })
         break
       }
@@ -507,11 +516,24 @@ Aturan PENTING:
 7. Jangan mengubah struktur paragraf — output tetap sama panjangnya
 `
 
-  const { text: result } = await withFallbackAndRetry((model) =>
-    generateText({ model, prompt, temperature: 0.3 }),
-  )
+  const { text: result } = await withFallbackAndRetry(async (model) => {
+    const response = await generateText({
+      model,
+      prompt,
+      temperature: 0.3,
+      maxRetries: 0,
+      timeout: 40_000,
+    })
+    const trimmed = response.text.trim()
 
-  return result.trim()
+    if (!trimmed || isErrorText(trimmed)) {
+      throw new Error(trimmed || "Provider returned an empty response")
+    }
+
+    return { text: trimmed }
+  }, { maxRetries: 0 })
+
+  return result
 }
 
 export async function generateParaphraseAlternatives(
@@ -550,24 +572,62 @@ Format WAJIB:
 JANGAN gunakan format markdown, JANGAN tambahkan teks lain.`
 
   const { text } = await withFallbackAndRetry(async (model) => {
-    const res = await generateText({ model, prompt, temperature: 0.4 })
-    // Gunakan cleanJson dulu agar markdown/teks pengantar tidak false positive
-    const cleaned = cleanJson(res.text)
-    if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
-      throw new Error(`Provider returned non-JSON response`)
-    }
-    return res
-  })
+    const res = await generateText({
+      model,
+      prompt,
+      temperature: 0.4,
+      maxRetries: 0,
+      timeout: 20_000,
+    })
+    const parsed = safeJsonParse<unknown>(res.text, null)
+    const alternatives = normalizeParaphraseAlternatives(parsed, existingKeys)
 
-  const parsed = safeJsonParse(text, null)
-  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-    const alt = (parsed as Record<string, unknown>).alternatives
-    if (alt && typeof alt === "object" && !Array.isArray(alt)) {
-      return alt as Record<string, string[]>
+    if (Object.keys(alternatives).length === 0) {
+      throw new Error("Provider returned no valid alternatives")
     }
-    return parsed as Record<string, string[]>
+
+    return { text: JSON.stringify(alternatives) }
+  }, { maxRetries: 0 })
+
+  return safeJsonParse(text, {})
+}
+
+function normalizeParaphraseAlternatives(
+  parsed: unknown,
+  existingKeys: string[],
+): Record<string, string[]> {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {}
+
+  const root = parsed as Record<string, unknown>
+  const candidate =
+    root.alternatives && typeof root.alternatives === "object" && !Array.isArray(root.alternatives)
+      ? root.alternatives as Record<string, unknown>
+      : root
+  const entries = Object.entries(candidate)
+  const normalized: Record<string, string[]> = {}
+
+  for (const word of existingKeys) {
+    const matchingEntry = entries.find(
+      ([key]) => key.trim().toLocaleLowerCase("id-ID") === word.toLocaleLowerCase("id-ID"),
+    )
+    if (!matchingEntry || !Array.isArray(matchingEntry[1])) continue
+
+    const alternatives = matchingEntry[1]
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter((item, index, items) => (
+        item.length > 0 &&
+        item.toLocaleLowerCase("id-ID") !== word.toLocaleLowerCase("id-ID") &&
+        items.indexOf(item) === index
+      ))
+      .slice(0, 4)
+
+    if (alternatives.length > 0) {
+      normalized[word] = alternatives
+    }
   }
-  return {}
+
+  return normalized
 }
 
 // ──────────────────────────────────────────

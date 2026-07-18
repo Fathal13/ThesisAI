@@ -70,6 +70,7 @@ interface ParaphraseWizardState {
   currentIndex: number
   alternativesLoading: boolean
   error: string | null
+  errorStage: "paraphrase" | "alternatives" | null
 }
 
 function initialWizardState(): ParaphraseWizardState {
@@ -82,6 +83,7 @@ function initialWizardState(): ParaphraseWizardState {
     currentIndex: 0,
     alternativesLoading: false,
     error: null,
+    errorStage: null,
   }
 }
 
@@ -100,6 +102,7 @@ export default function WritingPage() {
 
   // ─── Paraphrase Wizard state ───
   const [wizard, setWizard] = useState<ParaphraseWizardState>(initialWizardState)
+  const paraphraseRequestRef = useRef(0)
 
   const [form, setForm] = useState({
     judul: "",
@@ -249,31 +252,47 @@ export default function WritingPage() {
   // ─── Paraphrase Wizard ───
   async function openWizard() {
     if (!form.konten.trim()) return
+
+    const originalText = form.konten
+    const requestId = ++paraphraseRequestRef.current
+
     setParaphraseLoading(true)
     setError("")
+    setWizard({
+      isOpen: true,
+      originalText,
+      paraphrasedText: "",
+      style: "akademik",
+      words: [],
+      currentIndex: 0,
+      alternativesLoading: false,
+      error: null,
+      errorStage: null,
+    })
 
+    await performParaphrase(originalText, requestId)
+  }
+
+  async function performParaphrase(originalText: string, requestId: number) {
     try {
-      const originalText = form.konten
-
-      // Fetch paraphrase — tanpa client-side AbortController / timeout.
-      // Server-side withFallbackAndRetry sudah handle retry + timeout (Vercel default 300s).
-      // Provider gratis kadang lambat (>60s), AbortController justru picu "signal aborted".
       const paraphraseResult = await fetch("/api/ai/paraphrase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: originalText, style: "akademik" }),
       })
 
+      if (requestId !== paraphraseRequestRef.current) return
+
       if (!paraphraseResult.ok) {
         const errData = await safeParseJson(paraphraseResult)
         throw new Error((errData?.error as string) ?? "Gagal memparafrase")
       }
       const data = await safeParseJson(paraphraseResult)
-      if (!data || !data.result) {
+      if (!data || typeof data.result !== "string" || !data.result.trim()) {
         throw new Error("Respons parafrase tidak valid dari server")
       }
 
-      let paraphrasedText = data.result as string
+      let paraphrasedText = data.result
 
       // Guard: jika AI balikin teks sama persis, retry dengan gaya berbeda
       if (paraphrasedText.trim() === originalText.trim()) {
@@ -283,9 +302,13 @@ export default function WritingPage() {
           body: JSON.stringify({ text: originalText, style: "ubah-struktur" }),
         })
 
+        if (requestId !== paraphraseRequestRef.current) return
+
         if (res2.ok) {
           const data2 = await safeParseJson(res2)
-          paraphrasedText = (data2?.result as string) ?? ""
+          if (typeof data2?.result === "string" && data2.result.trim()) {
+            paraphrasedText = data2.result
+          }
         }
 
         // Guard 2: masih sama? berarti AI beneran ga bisa
@@ -294,37 +317,58 @@ export default function WritingPage() {
         }
       }
 
-      setWizard({
-        isOpen: true,
-        originalText,
+      setWizard(prev => ({
+        ...prev,
         paraphrasedText,
-        style: "akademik",
         words: [],
         currentIndex: 0,
         alternativesLoading: false,
         error: null,
-      })
-
-      // Small delay agar wizard state sempat di-render sebelum fetch berikutnya
-      await new Promise(r => setTimeout(r, 50))
-      await fetchAlternatives(originalText, paraphrasedText)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal memparafrase. Coba lagi."
-      setError(message)
-    } finally {
+        errorStage: null,
+      }))
       setParaphraseLoading(false)
+
+      await fetchAlternatives(originalText, paraphrasedText, requestId)
+    } catch (err) {
+      if (requestId !== paraphraseRequestRef.current) return
+      const message = err instanceof Error ? err.message : "Gagal memparafrase. Coba lagi."
+      setWizard(prev => ({
+        ...prev,
+        alternativesLoading: false,
+        error: message,
+        errorStage: "paraphrase",
+      }))
+    } finally {
+      if (requestId === paraphraseRequestRef.current) {
+        setParaphraseLoading(false)
+      }
     }
   }
 
-  async function fetchAlternatives(originalText: string, paraphrasedText: string) {
-    const changedWords = extractChangedWords(originalText, paraphrasedText)
+  async function fetchAlternatives(
+    originalText: string,
+    paraphrasedText: string,
+    requestId = paraphraseRequestRef.current,
+  ) {
+    const changedWords = extractChangedWords(originalText, paraphrasedText).slice(0, 20)
 
     if (changedWords.length === 0) {
-      setWizard(prev => ({ ...prev, words: [], alternativesLoading: false }))
+      setWizard(prev => ({
+        ...prev,
+        words: [],
+        alternativesLoading: false,
+        error: null,
+        errorStage: null,
+      }))
       return
     }
 
-    setWizard(prev => ({ ...prev, alternativesLoading: true, error: null }))
+    setWizard(prev => ({
+      ...prev,
+      alternativesLoading: true,
+      error: null,
+      errorStage: null,
+    }))
 
     try {
       const res = await fetch("/api/ai/paraphrase-alternatives", {
@@ -337,19 +381,60 @@ export default function WritingPage() {
         }),
       })
 
+      if (requestId !== paraphraseRequestRef.current) return
+
       const data = await safeParseJson(res)
       if (!res.ok) throw new Error((data?.error as string) ?? "Gagal mengambil alternatif")
 
+      const alternativeMap =
+        data?.alternatives && typeof data.alternatives === "object"
+          ? data.alternatives as Record<string, unknown>
+          : {}
+
       const words: ParaphraseWord[] = changedWords.map((word) => ({
         word,
-        alternatives: (data?.alternatives as Record<string, string[]> | undefined)?.[word] || [],
+        alternatives: getAlternativesForWord(alternativeMap, word),
         selectedIndex: -1,
       }))
 
-      setWizard(prev => ({ ...prev, words, alternativesLoading: false }))
+      setWizard(prev => ({
+        ...prev,
+        words,
+        alternativesLoading: false,
+        error: null,
+        errorStage: null,
+      }))
     } catch (err) {
+      if (requestId !== paraphraseRequestRef.current) return
       const message = err instanceof Error ? err.message : "Gagal mengambil alternatif"
-      setWizard(prev => ({ ...prev, alternativesLoading: false, error: message }))
+      setWizard(prev => ({
+        ...prev,
+        alternativesLoading: false,
+        error: message,
+        errorStage: "alternatives",
+      }))
+    }
+  }
+
+  async function retryWizard() {
+    if (wizard.errorStage === "paraphrase") {
+      const requestId = ++paraphraseRequestRef.current
+      setParaphraseLoading(true)
+      setWizard(prev => ({
+        ...prev,
+        paraphrasedText: "",
+        words: [],
+        currentIndex: 0,
+        alternativesLoading: false,
+        error: null,
+        errorStage: null,
+      }))
+      await performParaphrase(wizard.originalText, requestId)
+      return
+    }
+
+    if (wizard.errorStage === "alternatives") {
+      await fetchAlternatives(wizard.originalText, wizard.paraphrasedText)
     }
   }
 
@@ -447,6 +532,8 @@ export default function WritingPage() {
   }
 
   function closeWizard() {
+    paraphraseRequestRef.current += 1
+    setParaphraseLoading(false)
     setWizard(initialWizardState())
   }
 
@@ -790,7 +877,12 @@ export default function WritingPage() {
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {wizard.alternativesLoading ? (
+              {paraphraseLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="size-8 animate-spin text-primary" />
+                  <p className="ml-3 text-muted-foreground">Membuat hasil parafrase...</p>
+                </div>
+              ) : wizard.alternativesLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="size-8 animate-spin text-primary" />
                   <p className="ml-3 text-muted-foreground">Mengambil alternatif kata...</p>
@@ -799,9 +891,16 @@ export default function WritingPage() {
                 <div className="text-center py-8 text-destructive">
                   <AlertCircle className="size-12 mx-auto mb-2" />
                   <p>{wizard.error}</p>
-                  <Button variant="outline" className="mt-4" onClick={() => fetchAlternatives(wizard.originalText, wizard.paraphrasedText)}>
-                    Coba Lagi
-                  </Button>
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    <Button variant="outline" onClick={retryWizard}>
+                      Coba Lagi
+                    </Button>
+                    {wizard.errorStage === "alternatives" && wizard.paraphrasedText && (
+                      <Button onClick={applyWizardResult}>
+                        Terapkan Hasil Parafrase
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : wizard.words.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -940,6 +1039,23 @@ async function safeParseJson(res: Response): Promise<Record<string, unknown> | n
   } catch {
     return null
   }
+}
+
+function getAlternativesForWord(
+  alternatives: Record<string, unknown>,
+  word: string,
+): string[] {
+  const matchingEntry = Object.entries(alternatives).find(
+    ([key]) => key.trim().toLocaleLowerCase("id-ID") === word.toLocaleLowerCase("id-ID"),
+  )
+
+  if (!matchingEntry || !Array.isArray(matchingEntry[1])) return []
+
+  return matchingEntry[1]
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item, index, items) => item && items.indexOf(item) === index)
+    .slice(0, 4)
 }
 
 function ReviewSection({ title, items, icon }: { title: string; items: string[]; icon: React.ReactNode }) {
