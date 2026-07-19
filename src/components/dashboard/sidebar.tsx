@@ -56,7 +56,6 @@ const navigation = [
   { name: "Writing", href: "/dashboard/writing", icon: Edit3 },
   { name: "Sidang", href: "/dashboard/sidang", icon: Brain },
   { name: "Progress", href: "/dashboard/progress", icon: BarChart3 },
-  { name: "Bantuan", href: "/dashboard/bantuan", icon: LifeBuoy },
 ]
 
 export function DashboardSidebar({ user }: { user: { email?: string; user_metadata?: { nama?: string } } | null }) {
@@ -142,6 +141,14 @@ export function DashboardSidebar({ user }: { user: { email?: string; user_metada
             </div>
 
             <Link
+              href="/dashboard/bantuan"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              onClick={() => setMobileOpen(false)}
+            >
+              <LifeBuoy className="size-4" />
+              <span>Bantuan</span>
+            </Link>
+            <Link
               href="/dashboard/settings"
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
               onClick={() => setMobileOpen(false)}
@@ -222,6 +229,13 @@ export function DashboardSidebar({ user }: { user: { email?: string; user_metada
                   <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
               </div>
+              <Link
+                href="/dashboard/bantuan"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors mb-1"
+              >
+                <LifeBuoy className="size-4" />
+                <span>Bantuan</span>
+              </Link>
               <Link
                 href="/dashboard/settings"
                 className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors mb-2"

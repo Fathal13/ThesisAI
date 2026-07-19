@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Sparkles } from "lucide-react"
 
 const motivations = [
@@ -15,24 +14,15 @@ const motivations = [
 ]
 
 export function MarqueeMotivation() {
-  const [text, setText] = useState(motivations[0])
-  useEffect(() => {
-    let i = 0
-    const id = setInterval(() => {
-      i = (i + 1) % motivations.length
-      setText(motivations[i])
-    }, 6000)
-    return () => clearInterval(id)
-  }, [])
+  const items = motivations.flatMap((m, i) => [
+    <Sparkles key={`s${i}`} className="size-5 text-primary flex-shrink-0 mx-3" />,
+    <span key={`t${i}`} className="font-medium text-primary text-sm md:text-base whitespace-nowrap">{m}</span>,
+  ])
+
   return (
     <div className="overflow-hidden bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border border-primary/10 rounded-xl py-3">
-      <div className="flex items-center gap-3 animate-marquee whitespace-nowrap">
-        <Sparkles className="size-5 text-primary flex-shrink-0" />
-        <span className="font-medium text-primary text-sm md:text-base">{text}</span>
-        <Sparkles className="size-5 text-primary flex-shrink-0" />
-        <span className="font-medium text-primary text-sm md:text-base">{text}</span>
-        <Sparkles className="size-5 text-primary flex-shrink-0" />
-        <span className="font-medium text-primary text-sm md:text-base">{text}</span>
+      <div className="flex items-center animate-marquee w-max">
+        {items}{items}
       </div>
     </div>
   )
