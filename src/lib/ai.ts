@@ -229,10 +229,16 @@ async function withFallbackAndRetry(
         return await fn(model)
       } catch (err: unknown) {
         const errMsg = (err as { message?: string })?.message ?? String(err)
+        // Sanitize: API key, token, dan PII lain tidak boleh bocor ke log
+        const sanitized = errMsg
+          .replace(/(?:key|token|secret|password|authorization|auth|credential)[=:]\s*\S+/gi, '$1=[REDACTED]')
+          .replace(/AIza[0-9A-Za-z_-]{35}/g, '[API-KEY-REDACTED]')
+          .replace(/sk-[0-9a-zA-Z]{20,}/g, '[API-KEY-REDACTED]')
+          .slice(0, 150)
 
         // Content safety / policy — throw LANGSUNG, gak berguna fallback
         if (!shouldFallback(err)) {
-          console.error(`[AI] ${name} unrecoverable error (safety/policy):`, errMsg)
+          console.error(`[AI] ${name} unrecoverable error (safety/policy):`, sanitized)
           throw err
         }
 
@@ -240,11 +246,11 @@ async function withFallbackAndRetry(
         // Treat as server error → retry dulu, baru fallback
         if (isErrorText(errMsg)) {
           if (attempt < maxRetries) {
-            console.warn(`[AI] ${name} returned error text (attempt ${attempt + 1}/${maxRetries + 1}), retry`)
+            console.warn(`[AI] ${name} error text (attempt ${attempt + 1}/${maxRetries + 1}), retry`)
             continue
           }
-          console.warn(`[AI] ${name} error text after ${maxRetries + 1}x retry — fallback: ${errMsg.slice(0, 80)}`)
-          errors.push({ provider: name, error: `Provider error: ${errMsg.slice(0, 100)}` })
+          console.warn(`[AI] ${name} error text after ${maxRetries + 1}x retry — fallback: ${sanitized}`)
+          errors.push({ provider: name, error: `Provider error: ${sanitized.slice(0, 100)}` })
           break
         }
 
@@ -254,15 +260,15 @@ async function withFallbackAndRetry(
             console.warn(`[AI] ${name} timeout (attempt ${attempt + 1}/${maxRetries + 1}), retry`)
             continue
           }
-          console.warn(`[AI] ${name} timeout habis setelah ${maxRetries + 1}x retry — fallback`)
-          errors.push({ provider: name, error: `Timeout — ${errMsg}` })
+          console.warn(`[AI] ${name} timeout setelah ${maxRetries + 1}x retry — fallback`)
+          errors.push({ provider: name, error: `Timeout` })
           break
         }
 
         // Auth / model not found → LANGSUNG fallback (gak perlu retry)
         if (isAuthError(err) || isModelNotAvailable(err)) {
-          console.warn(`[AI] ${name} auth/model error — fallback: ${errMsg}`)
-          errors.push({ provider: name, error: errMsg })
+          console.warn(`[AI] ${name} auth/model error — fallback`)
+          errors.push({ provider: name, error: "Konfigurasi provider tidak valid" })
           break
         }
 
@@ -276,20 +282,20 @@ async function withFallbackAndRetry(
             await new Promise((r) => setTimeout(r, delay))
             continue
           }
-          console.warn(`[AI] ${name} rate limit habis setelah ${maxRetries + 1}x retry — fallback`)
-          errors.push({ provider: name, error: `Rate limit — ${errMsg}` })
+          console.warn(`[AI] ${name} rate limit setelah ${maxRetries + 1}x retry — fallback`)
+          errors.push({ provider: name, error: `Rate limit` })
           break
         }
 
         // Error lain (server error, unknown) — retry dulu, baru fallback
         if (attempt < maxRetries) {
           console.warn(
-            `[AI] ${name} error (attempt ${attempt + 1}/${maxRetries + 1}), retry: ${errMsg}`,
+            `[AI] ${name} error (attempt ${attempt + 1}/${maxRetries + 1}), retry: ${sanitized}`,
           )
           continue
         }
-        console.warn(`[AI] ${name} error habis setelah ${maxRetries + 1}x retry — fallback: ${errMsg}`)
-        errors.push({ provider: name, error: errMsg })
+        console.warn(`[AI] ${name} error setelah ${maxRetries + 1}x retry — fallback: ${sanitized}`)
+        errors.push({ provider: name, error: sanitized })
         break
       }
     }

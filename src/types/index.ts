@@ -141,6 +141,41 @@ export type Database = {
         Insert: Omit<Progress, "id" | "updated_at">
         Update: Partial<Omit<Progress, "id">>
       }
+      feedbacks: {
+        Row: {
+          id: string
+          user_id: string | null
+          kategori: string
+          judul: string
+          deskripsi: string
+          email: string | null
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          kategori: string
+          judul: string
+          deskripsi: string
+          email?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<{
+          id: string
+          user_id: string | null
+          kategori: string
+          judul: string
+          deskripsi: string
+          email: string | null
+          status: string
+          created_at: string
+          updated_at: string
+        }>
+      }
       rate_limit: {
         Row: {
           key: string

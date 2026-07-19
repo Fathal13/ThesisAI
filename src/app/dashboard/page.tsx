@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import Link from "next/link"
-import { BookOpen, Edit3, Brain, BarChart3, ArrowRight, GraduationCap } from "lucide-react"
+import { BookOpen, Edit3, Brain, BarChart3, ArrowRight } from "lucide-react"
+import { MarqueeMotivation } from "@/components/marquee-motivation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
@@ -38,14 +39,6 @@ const quickActions = [
     color: "text-orange-600",
     bg: "bg-orange-50 dark:bg-orange-950/40",
   },
-]
-
-const tips = [
-  "Mulailah Bab 2 dengan Literatur Explorer — cari 5 artikel relevan hari ini.",
-  "Progress 1% lebih baik daripada 0%. Tulis satu paragraf dulu.",
-  "Bab 3 (Metodologi) biasanya yang paling straight-forward. Kerjakan dulu!",
-  "Review bab dengan AI sebelum kirim ke dosen pembimbing.",
-  "Latihan sidang cukup 10 menit sehari — konsisten lebih penting daripada durasi.",
 ]
 
 export default async function DashboardPage() {
@@ -97,7 +90,6 @@ export default async function DashboardPage() {
   }
 
   const pct = progress.total_bab > 0 ? Math.round((progress.bab_selesai / progress.total_bab) * 100) : 0
-  const tipOfDay = tips[Math.floor(Math.random() * tips.length)]
 
   return (
     <div className="space-y-10">
@@ -139,6 +131,9 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
+      {/* Marquee Motivasi */}
+      <MarqueeMotivation />
+
       {/* Quick Actions */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
@@ -168,21 +163,6 @@ export default async function DashboardPage() {
           ))}
         </div>
       </div>
-
-      {/* Tip Hari Ini */}
-      <Card className="bg-primary/5 border-primary/10">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <GraduationCap className="size-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-semibold text-sm mb-1">💡 Tip Hari Ini</p>
-              <p className="text-muted-foreground">{tipOfDay}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
     </div>
   )

@@ -28,18 +28,28 @@ function validateEmail(email: string): string | null {
   return null
 }
 
-function auditLog(action: string, email: string, ip: string, status: "success" | "failure", detail?: string) {
+function auditLog(action: string, emailHash: string, ipHash: string, status: "success" | "failure") {
   console.log(
     JSON.stringify({
       level: "audit",
       timestamp: new Date().toISOString(),
       action,
-      email: email.toLowerCase(),
-      ip,
+      email: emailHash,
+      ip: ipHash,
       status,
-      detail,
     })
   )
+}
+
+function hashIdentifier(value: string): string {
+  // Hashing sederhana untuk log — bukan kriptografis, cukup mencegah PII mentah di log
+  let hash = 0
+  for (let i = 0; i < value.length; i++) {
+    const char = value.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  return `h_${Math.abs(hash).toString(36)}`
 }
 
 export async function POST(request: NextRequest) {
@@ -77,7 +87,7 @@ export async function POST(request: NextRequest) {
       const csrfCookie = request.cookies.get(CSRF_TOKEN_NAME)?.value
       const csrfHeader = request.headers.get("x-csrf-token")
       if (csrfCookie && csrfHeader && csrfCookie !== csrfHeader) {
-        console.warn(`[CSRF] Token mismatch from IP ${ip}`)
+        console.warn(`[CSRF] Token mismatch`)
         return NextResponse.json({ error: "Request tidak valid." }, { status: 403 })
       }
     }
@@ -153,10 +163,10 @@ export async function POST(request: NextRequest) {
 
       // Always return success (prevent email enumeration)
       if (error) {
-        auditLog("forgot-password", normalizedEmail, ip, "failure", error.message)
-        console.error("[Auth] Forgot password error:", error.message)
+        auditLog("forgot-password", hashIdentifier(normalizedEmail), hashIdentifier(ip), "failure")
+        console.error("[Auth] Forgot password error occurred")
       } else {
-        auditLog("forgot-password", normalizedEmail, ip, "success")
+        auditLog("forgot-password", hashIdentifier(normalizedEmail), hashIdentifier(ip), "success")
       }
 
       return respond({
@@ -171,12 +181,12 @@ export async function POST(request: NextRequest) {
       const { error } = await supabase.auth.updateUser({ password })
 
       if (error) {
-        auditLog("reset-password", "user", ip, "failure", error.message)
-        console.error("[Auth] Reset password error:", error.message)
+        auditLog("reset-password", hashIdentifier("user"), hashIdentifier(ip), "failure")
+        console.error("[Auth] Reset password error occurred")
         return respond({ error: "Gagal reset password. Coba lagi nanti." }, 500)
       }
 
-      auditLog("reset-password", "user", ip, "success")
+      auditLog("reset-password", hashIdentifier("user"), hashIdentifier(ip), "success")
       return respond({ message: "✅ Password berhasil diubah! Silakan login." })
     }
 
@@ -210,7 +220,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (error) {
-        auditLog("signin", normalizedEmail, ip, "failure", error.message)
+        auditLog("signin", hashIdentifier(normalizedEmail), hashIdentifier(ip), "failure")
         if (
           error.message.includes("Email not confirmed") ||
           error.message.includes("email not confirmed")
@@ -226,8 +236,16 @@ export async function POST(request: NextRequest) {
         return respond({ error: "Email atau password salah." }, 401)
       }
 
-      auditLog("signin", normalizedEmail, ip, "success")
-      return respond({ user: data.user, session: data.session })
+      auditLog("signin", hashIdentifier(normalizedEmail), hashIdentifier(ip), "success")
+      // Kirim data minimal — jangan ekspos seluruh user/session object mentah
+      return respond({
+        success: true,
+        user: {
+          id: data.user?.id,
+          email: data.user?.email,
+          nama: data.user?.user_metadata?.nama ?? null,
+        },
+      })
     }
 
     // ───── Sign up ─────
@@ -244,7 +262,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (error) {
-        auditLog("signup", normalizedEmail, ip, "failure", error.message)
+        auditLog("signup", hashIdentifier(normalizedEmail), hashIdentifier(ip), "failure")
         // Gunakan pesan generik untuk mencegah email enumeration
         if (error.message.includes("already")) {
           return respond({
@@ -257,7 +275,7 @@ export async function POST(request: NextRequest) {
         return respond({ error: "Gagal mendaftar. Coba lagi nanti." }, 500)
       }
 
-      auditLog("signup", normalizedEmail, ip, "success")
+      auditLog("signup", hashIdentifier(normalizedEmail), hashIdentifier(ip), "success")
 
       // Email konfirmasi standar — user harus konfirmasi sebelum bisa akses dashboard
       return respond({

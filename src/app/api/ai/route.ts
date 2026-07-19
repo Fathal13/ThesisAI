@@ -66,8 +66,7 @@ export async function POST(req: Request) {
     if (error instanceof AIRateLimitError) {
       return NextResponse.json(
         {
-          error: `Kuota ${error.provider} sedang habis. Semua provider juga gagal. Coba lagi nanti.`,
-          provider: error.provider,
+          error: `Kuota AI sedang habis. Coba lagi nanti.`,
         },
         { status: 429 },
       )
@@ -76,8 +75,7 @@ export async function POST(req: Request) {
     if (error instanceof AITimeoutError) {
       return NextResponse.json(
         {
-          error: `Provider ${error.provider} tidak merespon. Coba lagi.`,
-          provider: error.provider,
+          error: `Provider AI tidak merespon. Coba lagi.`,
         },
         { status: 504 },
       )

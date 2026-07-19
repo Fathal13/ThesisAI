@@ -14,6 +14,7 @@ import {
   Settings,
   ChevronLeft,
   X,
+  LifeBuoy,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -55,6 +56,7 @@ const navigation = [
   { name: "Writing", href: "/dashboard/writing", icon: Edit3 },
   { name: "Sidang", href: "/dashboard/sidang", icon: Brain },
   { name: "Progress", href: "/dashboard/progress", icon: BarChart3 },
+  { name: "Bantuan", href: "/dashboard/bantuan", icon: LifeBuoy },
 ]
 
 export function DashboardSidebar({ user }: { user: { email?: string; user_metadata?: { nama?: string } } | null }) {
