@@ -166,6 +166,13 @@ export default function WritingPage() {
     setReview(null)
 
     const { supabase } = await import("@/lib/supabase")
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      setError("Sesi login berakhir. Silakan masuk kembali sebelum menyimpan bab.")
+      return
+    }
+
     const payload = {
       judul: form.judul || BAB_OPTIONS.find((b) => b.value === form.nomor_bab)?.label || "",
       nomor_bab: parseInt(form.nomor_bab),
@@ -180,8 +187,9 @@ export default function WritingPage() {
       const { error: err } = await (table as any).update(payload).eq("id", editingId)
       if (err) { setError(err.message); return }
     } else {
+      // RLS requires the inserted row to belong to the authenticated user.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: err } = await (table as any).insert(payload)
+      const { error: err } = await (table as any).insert({ ...payload, user_id: user.id })
       if (err) { setError(err.message); return }
     }
 
@@ -883,9 +891,17 @@ export default function WritingPage() {
                   <p className="ml-3 text-muted-foreground">Membuat hasil parafrase...</p>
                 </div>
               ) : wizard.alternativesLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="size-8 animate-spin text-primary" />
-                  <p className="ml-3 text-muted-foreground">Mengambil alternatif kata...</p>
+                <div className="py-8 text-center">
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="size-8 animate-spin text-primary" />
+                    <p className="ml-3 text-muted-foreground">Mengambil alternatif kata...</p>
+                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Hasil parafrase sudah siap dan dapat langsung digunakan.
+                  </p>
+                  <Button className="mt-4" onClick={applyWizardResult}>
+                    Terapkan Hasil Parafrase
+                  </Button>
                 </div>
               ) : wizard.error ? (
                 <div className="text-center py-8 text-destructive">
@@ -896,7 +912,7 @@ export default function WritingPage() {
                       Coba Lagi
                     </Button>
                     {wizard.errorStage === "alternatives" && wizard.paraphrasedText && (
-                      <Button onClick={applyWizardResult}>
+                      <Button variant="default" onClick={applyWizardResult}>
                         Terapkan Hasil Parafrase
                       </Button>
                     )}

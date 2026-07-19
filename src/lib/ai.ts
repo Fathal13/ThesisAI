@@ -552,7 +552,7 @@ function extractRelevantSentences(
   text: string,
   changedWords: string[],
 ): string {
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || []
+  const sentences = text.match(/[^.!?]+(?:[.!?]+|$)/g) || [text]
   const changedWordsSet = new Set(changedWords.map((w) => w.toLowerCase()))
 
   const relevant = sentences
@@ -562,7 +562,8 @@ function extractRelevantSentences(
     })
     .slice(0, 5) // Max 5 sentences
 
-  return relevant.join(" ").slice(0, 1500) // Max 1500 chars
+  const context = relevant.length > 0 ? relevant.join(" ") : text
+  return context.trim().slice(0, 1500) // Max 1500 chars
 }
 
 export async function generateParaphraseAlternatives(
