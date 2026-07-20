@@ -129,7 +129,8 @@ async function fetchMultiPageOpenAlex(
 
   const pages = await Promise.all(pagePromises)
 
-  const seen = new Set<string>()
+  const seenTitle = new Set<string>()
+  const seenDoi = new Set<string>()
   const combined: OpenAlexRawResult[] = []
   let totalRaw = 0
 
@@ -138,9 +139,48 @@ async function fetchMultiPageOpenAlex(
     totalRaw = page.total
 
     for (const item of page.results) {
-      const key = item.doi ?? item.title
-      if (!seen.has(key)) {
-        seen.add(key)
+      // ─── Robust dedup: normalized title as PRIMARY key ───
+      // Artikel dengan judul yang sama (meski DOI beda) dianggap duplikat
+      // Karena: preprint, versi berbeda, re-upload Zenodo = konten sama
+      const normalizedTitle = (item.title ?? "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim()
+      const doi = item.doi ?? ""
+      const year = item.year ?? 0
+
+      let isDuplicate = false
+
+      // Primary: normalized title (case-insensitive, whitespace-normalized)
+      if (normalizedTitle && seenTitle.has(normalizedTitle)) {
+        isDuplicate = true
+      } else if (normalizedTitle) {
+        seenTitle.add(normalizedTitle)
+      }
+
+      // Secondary: DOI (untuk artikel tanpa title tapi punya DOI)
+      // Skip DOI check jika title-based sudah match
+      if (!isDuplicate && doi && seenDoi.has(doi)) {
+        isDuplicate = true
+      } else if (!isDuplicate && doi) {
+        seenDoi.add(doi)
+      }
+
+      // Tertiary: title + year fallback (untuk artikel tanpa DOI & title sudah dinormalisasi)
+      if (!isDuplicate && !doi && normalizedTitle) {
+        for (const existing of combined) {
+          const existingTitle = (existing.title ?? "")
+            .toLowerCase()
+            .replace(/\s+/g, " ")
+            .trim()
+          if (existingTitle === normalizedTitle && (existing.year ?? 0) === year) {
+            isDuplicate = true
+            break
+          }
+        }
+      }
+
+      if (!isDuplicate) {
         combined.push(item)
       }
     }
