@@ -116,7 +116,11 @@ export default function ProgressPage() {
   async function saveDeadline() {
     try {
       const { supabase } = await import("@/lib/supabase")
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
       await (supabase.from("progress") as any).upsert({ // eslint-disable-line @typescript-eslint/no-explicit-any
+        user_id: user.id,
         deadline_sidang: deadlineInput || null,
       }, { onConflict: "user_id" })
       setProgress({ ...progress, deadline_sidang: deadlineInput || null })
