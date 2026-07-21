@@ -17,7 +17,10 @@ export default function SettingsPage() {
   async function loadProfile() {
     try {
       const { supabase } = await import("@/lib/supabase")
-      const { data } = await supabase.from("profiles").select("*").single()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single()
       if (data) {
         const profile = data as UserProfile
         setForm({
@@ -42,12 +45,17 @@ export default function SettingsPage() {
 
     try {
       const { supabase } = await import("@/lib/supabase")
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setMessage("Sesi tidak ditemukan. Silakan login ulang."); return }
+
       const { error } = await (supabase.from("profiles") as any).upsert({ // eslint-disable-line @typescript-eslint/no-explicit-any
+        id: user.id,
+        email: user.email ?? "",
         nama: form.nama,
         npm: form.npm,
         universitas: form.universitas,
         jurusan: form.jurusan,
-      }, { onConflict: "id" })
+      })
 
       if (error) { setMessage("Gagal menyimpan profil. Coba lagi."); return }
       setMessage("Profil berhasil disimpan! ✅")
